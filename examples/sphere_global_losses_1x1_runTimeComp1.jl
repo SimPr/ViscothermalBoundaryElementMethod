@@ -1,4 +1,4 @@
-# Better name would be sphere_global_losses_1x1_results1c
+# Better name would be sphere_global_losses_1x1_results1
 # Save plots and solution for paDense (1n-direct) and vv(1n-direct) + analytical reference
 # Call with julia --project=.  ./examples/sphere_global_losses_1x1_runTimeComp1.jl --freq 500 --compute_full_solution true --mesh_file "sphere_1m_coarser"
 

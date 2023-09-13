@@ -14,15 +14,17 @@ tri_physics_orders  = [:linear,:geometry,:disctriconstant,:disctrilinear,:disctr
 # tri_mesh_file = "examples/meshes/sphere_1m_coarser"
 # tri_mesh_file = "examples/meshes/sphere_1m_coarse"
 # tri_mesh_file = "examples/meshes/sphere_1m"
-tri_mesh_file = "examples/meshes/sphere_1m_fine"
+# tri_mesh_file = "examples/meshes/sphere_1m_fine"
 # tri_mesh_file = "examples/meshes/sphere_1m_finer"
-# tri_mesh_file = "examples/meshes/sphere_1m_extremely_fine"
 # tri_mesh_file = "examples/meshes/sphere_1m_4p5k"
+tri_mesh_file = "examples/meshes/sphere_1m_extremely_fine"
 # tri_mesh_file = "examples/meshes/sphere_1m_35k"
 # tri_mesh_file = "examples/meshes/sphere_1m_77k"
 @time mesh = load3dTriangularComsolMesh(tri_mesh_file;geometry_order=geometry_orders[2],
                                                        physics_order=tri_physics_orders[2])
 
+BoundaryIntegralEquations.get_hmax(mesh)
+BoundaryIntegralEquations.get_hmin(mesh)
 #==========================================================================================
                                     3d Visualization
 ==========================================================================================#

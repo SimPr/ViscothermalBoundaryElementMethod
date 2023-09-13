@@ -115,7 +115,7 @@ function load3dTriangularComsolMesh(mesh_file;m=3,n=3,
 end
 
 """
-load3dTriangularComsolMesh_SphereCorr(mesh_file,radius;m=3,n=3, geometry_order=:quadratic,
+    load3dTriangularComsolMeshCorr(mesh_file,radius;m=3,n=3, geometry_order=:quadratic,
         physics_order=:geometry,beta_type=:legendre,entites=false,removed_entites=[-1])
 
 """
@@ -139,13 +139,13 @@ function load3dTriangularComsolMesh_SphereCorr(mesh_file,radius;m=3,n=3,
     used_nodes  = sort(unique(initial_topology[:,mask]))
     topology    = remove_unused_nodes(initial_topology[:,mask])
     coordinates = initial_coordinates[:,used_nodes]
-    
+
     # adjusting nodal positions to match theoretical radius of sphere
     r = sqrt.(coordinates[1,:].^2+coordinates[2,:].^2+coordinates[3,:].^2)
     scalingFactor = zeros(1,size(r,1))
     scalingFactor[1,:] = radius./r
     coordinates = scalingFactor.*coordinates
-
+    
     sources = coordinates[:,sort(unique(topology))]
 
     if physics_order == :geometry
