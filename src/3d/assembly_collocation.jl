@@ -19,12 +19,12 @@ function create_shape_function(shape_function::SurfaceFunction;n=4,m=4)
     return new_shape_function
 end
 
-function interpolate_elements(mesh::Mesh3d;n=4,m=4)
+function interpolate_elements(mesh::Mesh3d,int_ext;n=4,m=4)
     shape_function = create_shape_function(mesh.shape_function;n=n,m=m)
-    interpolate_elements(mesh,shape_function)
+    interpolate_elements(mesh,shape_function,int_ext)
 end
 
-function interpolate_elements(mesh::Mesh3d,shape_function::SurfaceFunction)
+function interpolate_elements(mesh::Mesh3d,shape_function::SurfaceFunction,int_ext)
 
     @assert typeof(mesh.shape_function) <: typeof(shape_function)
 
@@ -48,7 +48,7 @@ function interpolate_elements(mesh::Mesh3d,shape_function::SurfaceFunction)
         # Computing interpolation
         my_mul!(interps,element_coordinates,shape_function.interpolation)
         # Computing tangential directions as well a a normal at each node
-        jacobian!(shape_function,element_coordinates,normals,tangents,sangents,jacobians)
+        jacobian!(shape_function,element_coordinates,normals,tangents,sangents,jacobians,int_ext)
         # Computing center of element
         center = element_coordinates * center_element.interpolation
         # Computing maximum sidelength
@@ -256,18 +256,18 @@ end
 
 Assembles the BEM matrices for F, G and G0 kernels over the elements on the mesh.
 """
-function assemble_parallel!(mesh::Mesh3d,k,in_sources;fOn=true,gOn=true,cOn=true,
+function assemble_parallel!(mesh::Mesh3d,k,in_sources,int_ext;fOn=true,gOn=true,cOn=true,
                             sparse=false,m=4,n=4,progress=true,depth=2,offset=nothing)
     if sparse
-        return sparse_assemble_parallel!(mesh,k,in_sources,mesh.physics_function;
+        return sparse_assemble_parallel!(mesh,k,in_sources,mesh.physics_function,int_ext;
                                 fOn=fOn,gOn=gOn,progress=progress,depth=depth,offset=offset)
     else
-        return assemble_parallel!(mesh::Mesh3d,k,in_sources,mesh.shape_function;
+        return assemble_parallel!(mesh::Mesh3d,k,in_sources,mesh.shape_function,int_ext;
                                 fOn=fOn,gOn=gOn,cOn=cOn,m=m,n=n,progress=progress)
     end
 end
 
-function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
+function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular,int_ext;
                                 fOn=true,gOn=true,cOn=true,m=3,n=3,progress=true)
     n_elements  = number_of_elements(mesh)
     sources     = convert.(eltype(shape_function),in_sources)
@@ -295,9 +295,9 @@ function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular
     copy_interpolation_nodes!(physics_function3,shape_function3)
 
     # Computing interpolation on each element
-    interpolation_list1 = interpolate_elements(mesh,shape_function1)
-    interpolation_list2 = interpolate_elements(mesh,shape_function2)
-    interpolation_list3 = interpolate_elements(mesh,shape_function3)
+    interpolation_list1 = interpolate_elements(mesh,shape_function1,int_ext)
+    interpolation_list2 = interpolate_elements(mesh,shape_function2,int_ext)
+    interpolation_list3 = interpolate_elements(mesh,shape_function3,int_ext)
 
     # Copying interpolation of physics functions1
     physics_interpolation1 = copy(physics_function1.interpolation')
@@ -352,7 +352,7 @@ function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular
 
 end
 
-function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::TriangularQuadratic;
+function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::TriangularQuadratic,int_ext;
                                 fOn=true,gOn=true,cOn=true,m=3,n=3,progress=true)
     n_elements  = number_of_elements(mesh)
     sources     = convert.(eltype(shape_function),in_sources)
@@ -399,12 +399,12 @@ function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular
     copy_interpolation_nodes!(physics_function6,shape_function6)
 
     # Computing interpolation on each element
-    interpolation_list1 = interpolate_elements(mesh,shape_function1)
-    interpolation_list2 = interpolate_elements(mesh,shape_function2)
-    interpolation_list3 = interpolate_elements(mesh,shape_function3)
-    interpolation_list4 = interpolate_elements(mesh,shape_function4)
-    interpolation_list5 = interpolate_elements(mesh,shape_function5)
-    interpolation_list6 = interpolate_elements(mesh,shape_function6)
+    interpolation_list1 = interpolate_elements(mesh,shape_function1,int_ext)
+    interpolation_list2 = interpolate_elements(mesh,shape_function2,int_ext)
+    interpolation_list3 = interpolate_elements(mesh,shape_function3,int_ext)
+    interpolation_list4 = interpolate_elements(mesh,shape_function4,int_ext)
+    interpolation_list5 = interpolate_elements(mesh,shape_function5,int_ext)
+    interpolation_list6 = interpolate_elements(mesh,shape_function6,int_ext)
 
     # Copying interpolation of physics functions1
     physics_interpolation1 = copy(physics_function1.interpolation')
@@ -478,7 +478,7 @@ function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular
 
 end
 
-function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::SurfaceFunction;
+function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::SurfaceFunction,int_ext;
                             fOn=true,gOn=true,cOn=true,m=4,n=4,progress=true)
     n_elements   = number_of_elements(mesh)
     sources      = convert.(eltype(shape_function),in_sources)
@@ -492,7 +492,7 @@ function assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::SurfaceFun
     shape_function1    = create_shape_function(shape_function;n=n,m=m)
     physics_function1  = deepcopy(physics_function)
     copy_interpolation_nodes!(physics_function1,shape_function1)
-    interpolation_list = interpolate_elements(mesh,shape_function1)
+    interpolation_list = interpolate_elements(mesh,shape_function1,int_ext)
     # Avoiding to have gauss-node on a singularity. Should be handled differently.
     if typeof(shape_function) <: QuadrilateralQuadraticLagrange
         for (x,y) in zip(shape_function1.gauss_u,shape_function1.gauss_v)

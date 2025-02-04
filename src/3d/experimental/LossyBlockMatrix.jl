@@ -39,14 +39,14 @@ end
 """
     LossyBlockMatrix(mesh::Mesh, freq;
                 m=3,n=3,l=90,p=90,S=-1,sparsity=20.0,
-                exterior=true,adaptive=false,blockoutput=false)
+                exterior=true,adaptive=false,blockoutput=false,int_ext=-1)
 
 Computes the Block matrix corresponding to the reduced lossy system.
 If `blockoutput=false` returns sparse matrix.
 If `blockoutput=true` returns a `LossyBlockMatrix` struct used for iterative solvers
 """
 function LossyBlockMatrix(mesh::Mesh,freq;depth=1,
-                            m=3,n=3,S=1,exterior=true,blockoutput=false)
+                            m=3,n=3,S=1,exterior=true,blockoutput=false,int_ext=-1)
     if (typeof(mesh.physics_function) <: DiscontinuousTriangularConstant)
         ArgumentError("Constant elements will have a tangential derivative equal to zero.")
     end
@@ -66,16 +66,16 @@ function LossyBlockMatrix(mesh::Mesh,freq;depth=1,
     ### Assembling the 3 BEM systems
     # Acoustic matrices
     println("Acoustic Matrices:")
-    Fₐ,Bₐ,C₀ = assemble_parallel!(mesh,kₐ,sources;m=m,n=n)
+    Fₐ,Bₐ,C₀ = assemble_parallel!(mesh,kₐ,sources,int_ext;m=m,n=n)
     Aₐ = (exterior ? Fₐ + Diagonal(C₀) : Fₐ - Diagonal(C₀))
 
     # Thermal matrices
     println("Thermal Matrices:")
-    Fₕ,Bₕ = assemble_parallel!(mesh,kₕ,sources;sparse=true,depth=depth);
+    Fₕ,Bₕ = assemble_parallel!(mesh,kₕ,sources,int_ext;sparse=true,depth=depth);
     Aₕ = (exterior ?  -Fₕ + Diagonal( C₀) : Fₕ - Diagonal(C₀))
     # Viscous matrices
     println("Viscous matrices:")
-    Fᵥ,Bᵥ  = assemble_parallel!(mesh,kᵥ,sources;sparse=true,depth=depth);
+    Fᵥ,Bᵥ  = assemble_parallel!(mesh,kᵥ,sources,int_ext;sparse=true,depth=depth);
     Aᵥ = (exterior ?  -Fᵥ + Diagonal( C₀) : Fᵥ - Diagonal(C₀))
 
     #### Extracting the normal and tangent direction

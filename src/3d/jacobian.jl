@@ -56,32 +56,32 @@ function column_norms!(jacobian,normals)
 end
 
 """
-    normalize!(normals,jacobian)
+    normalize!(normals,jacobian,int_ext)
 
 Dividing each column of `normals` with `jacobian`.
 """
-function normalize!(normals,jacobian)
+function normalize!(normals,jacobian,int_ext)
     @inbounds for i = axes(normals,2)
-        normals[1,i] = -normals[1,i]/jacobian[i]
-        normals[2,i] = -normals[2,i]/jacobian[i]
-        normals[3,i] = -normals[3,i]/jacobian[i]
+        normals[1,i] = int_ext*normals[1,i]/jacobian[i]
+        normals[2,i] = int_ext*normals[2,i]/jacobian[i]
+        normals[3,i] = int_ext*normals[3,i]/jacobian[i]
     end
     return normals
 end
 
 """
-    jacobian!(basisElement::SurfaceFunction,coordinates,normals,tangent,sangent,jacobian)
+    jacobian!(basisElement::SurfaceFunction,coordinates,normals,tangent,sangent,jacobian,int_ext)
 
 Inplace computations of the jacobian of the `basisElement::SurfaceFunction`` at the coordinates.
 The results are saved in `tangent`, `sangent`, `normals` and `jacobian`.
 """
 function jacobian!(basisElement::SurfaceFunction,
-                   coordinates,normals,tangent,sangent,jacobian)
+                   coordinates,normals,tangent,sangent,jacobian,int_ext)
     # my_mul! works only if coordinates are a stridedmatrix (i.e. @views dont work well)
     my_mul!(tangent,coordinates,basisElement.derivatives_u) # Computing tangent vector in X
     my_mul!(sangent,coordinates,basisElement.derivatives_v) # Computing tangent vector in Y
     cross_product!(normals,tangent,sangent)                 # Computing normal vector
     column_norms!(jacobian,normals)                         # Jacobian = length of the normal
-    normalize!(normals,jacobian)
+    normalize!(normals,jacobian,int_ext)
     return jacobian
 end

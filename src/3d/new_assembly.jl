@@ -34,7 +34,7 @@ function new_computing_integrals!(physics_interpolation,interpolation_element,
     end
 end
 
-function new_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
+function new_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular,int_ext;
                                 fOn=true,gOn=true,n_gauss=3,progress=true,depth=1,Ngauss=10,offset=0.5)
     n_elements  = number_of_elements(mesh)
     sources     = convert.(eltype(shape_function),in_sources)
@@ -51,7 +51,7 @@ function new_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triang
     copy_interpolation_nodes!(physics_function,shape_function1)
 
     # Computing interpolation on each element
-    interpolation_list = interpolate_elements(mesh,shape_function1)
+    interpolation_list = interpolate_elements(mesh,shape_function1,int_ext)
 
     # Copying interpolation of physics functions1
     # physics_interpolation = SMatrix{size(physics_function.interpolation')...}(copy(physics_function.interpolation'))
@@ -96,7 +96,7 @@ function new_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triang
     end
 
     # Singular corrections
-    Fs,Gs = sparse_assemble_parallel!(mesh,k,in_sources,mesh.physics_function;
+    Fs,Gs = sparse_assemble_parallel!(mesh,k,in_sources,mesh.physics_function,int_ext;
                 fOn=fOn,gOn=gOn,depth=depth,progress=progress,offset=offset, Ngauss = Ngauss)
 
     F .+= Fs

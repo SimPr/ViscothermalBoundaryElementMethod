@@ -151,7 +151,7 @@ sparse_computing_integrals!(physics_interpolation,shape_function,
                                     normals, tangents,sangents,
                                     interpolation,jacobian_mul_weights,r,integrand,
                                     element_coordinates,
-                                    fOn,gOn,submatrixF,submatrixG,k,source)
+                                    fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
 
 
 """
@@ -159,12 +159,12 @@ function sparse_computing_integrals!(physics_interpolation,shape_function,
                                     normals, tangents,sangents,
                                     interpolation,jacobian_mul_weights,r,integrand,
                                     element_coordinates,
-                                    fOn,gOn,submatrixF,submatrixG,k,source)
+                                    fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
     # Interpolate on element
     mul!(interpolation,element_coordinates,shape_function.interpolation)
     # Compute jacobian and normals
     jacobian!(shape_function,element_coordinates,
-                normals,tangents,sangents,jacobian_mul_weights)
+                normals,tangents,sangents,jacobian_mul_weights,int_ext)
     # Scale the jacobian with the weights
     integrand_mul!(jacobian_mul_weights,shape_function.weights)
     # Compute distance between interpolation and source. Save in r
@@ -197,7 +197,7 @@ function find_physics_nodes!(physics_nodes,idxs,di,physics_top)
     # [(idx[source_node] + di[t]) for t in physics_topology[:,element]]
 end
 
-function sparse_assemble_parallel!(mesh::Mesh3d,k,sources,physics_function;
+function sparse_assemble_parallel!(mesh::Mesh3d,k,sources,physics_function,int_ext;
     fOn=true,gOn=true,depth=1,offset=nothing, progress=true, Ngauss = 40)
     topology    = get_topology(mesh)
     n_sources   = size(sources,2)
@@ -362,37 +362,37 @@ function sparse_assemble_parallel!(mesh::Mesh3d,k,sources,physics_function;
                                             corner_normals,corner_tangents,corner_sangents,
                                             corner_interpolation,corner_jacobian,corner_r,
                                             corner_integrand,element_coordinates,
-                                            fOn,gOn,submatrixF,submatrixG,k,source)
+                                            fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
             elseif close_corner == 2
                 sparse_computing_integrals!(physics_interpolation2,shape_function2,
                                             corner_normals,corner_tangents,corner_sangents,
                                             corner_interpolation,corner_jacobian,corner_r,
                                             corner_integrand,element_coordinates,
-                                            fOn,gOn,submatrixF,submatrixG,k,source)
+                                            fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
             elseif close_corner == 3
                 sparse_computing_integrals!(physics_interpolation3,shape_function3,
                                             corner_normals,corner_tangents,corner_sangents,
                                             corner_interpolation,corner_jacobian,corner_r,
                                             corner_integrand,element_coordinates,
-                                            fOn,gOn,submatrixF,submatrixG,k,source)
+                                            fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
             elseif close_corner == 4
                 sparse_computing_integrals!(physics_interpolation4,shape_function4,
                                             middle_normals,middle_tangents,middle_sangents,
                                             middle_interpolation,middle_jacobian,middle_r,
                                             middle_integrand,element_coordinates,
-                                            fOn,gOn,submatrixF,submatrixG,k,source)
+                                            fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
             elseif close_corner == 5
                 sparse_computing_integrals!(physics_interpolation5,shape_function5,
                                             middle_normals,middle_tangents,middle_sangents,
                                             middle_interpolation,middle_jacobian,middle_r,
                                             middle_integrand,element_coordinates,
-                                            fOn,gOn,submatrixF,submatrixG,k,source)
+                                            fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
             else
                 sparse_computing_integrals!(physics_interpolation6,shape_function6,
                                             middle_normals,middle_tangents,middle_sangents,
                                             middle_interpolation,middle_jacobian,middle_r,
                                             middle_integrand,element_coordinates,
-                                            fOn,gOn,submatrixF,submatrixG,k,source)
+                                            fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
             end
         end
         if progress; next!(prog); end # For the progress meter

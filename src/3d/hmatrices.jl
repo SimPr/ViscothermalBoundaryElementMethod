@@ -19,7 +19,7 @@ end
 ==========================================================================================#
 """
     HGOperator(k,G,C,nearfield_correction,coefficients)
-    HGOperator(mesh,k;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+    HGOperator(mesh,k,int_ext;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
 
 A `LinearMap` that represents the BEM ``\\mathbf{G}`` matrix through the H-matrix approach.
 This matrix has ``k``th row given by ``\\mathbf{z}=\\mathbf{z}_k`` in the following
@@ -56,12 +56,12 @@ function LinearMaps._unsafe_mul!(y, A::HGOperator, x::AbstractVector)
     return y
 end
 
-function HGOperator(mesh,k;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+function HGOperator(mesh,k,int_ext;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
     # Making sure the wave number is complex
     zk = Complex(k)
     # Setup operator
     sources,_,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,nearfield,
-                                                                    offset,depth)
+                                                                    offset,depth,int_ext)
     # Extracting targets
     targets = mesh.sources
     # Creating temporary array
@@ -102,7 +102,7 @@ Base.size(K::HelmholtzDoubleLayer) = length(K.X), length(K.Y)
 
 """
     HFOperator(k,H,C,nearfield_correction,coefficients)
-    HFOperator(mesh,k;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+    HFOperator(mesh,k,int_ext;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
 
 A `LinearMap` that represents the BEM ``\\mathbf{H}`` matrix through the H-matrix approach.
 This matrix has ``k``th row given by ``\\mathbf{z}=\\mathbf{z}_k`` in the following
@@ -141,11 +141,11 @@ function LinearMaps._unsafe_mul!(y, A::HFOperator, x::AbstractVector)
     return y
 end
 
-function HFOperator(mesh,k;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1,interior=false)
+function HFOperator(mesh,k,int_ext;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1,interior=false)
     zk = Complex(k)
     # Setup operator
     sources,normals,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,
-                                                nearfield,offset,depth;single_layer=false)
+                                                nearfield,offset,depth,int_ext;single_layer=false)
     # Extracting targets
     targets = mesh.sources
     # Creating temporary array

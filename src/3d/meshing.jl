@@ -44,7 +44,7 @@ Supports .obj, .ply, .stl, .off, .2DM files using `MeshIO.jl` and `FileIO.jl`.
 function load3dTriangularMesh(mesh_file;m=3,n=3,
                 geometry_order=:linear,
                 physics_order=:geometry,beta_type=:legendre,
-                entites=false,removed_entites=[-1])
+                entites=false,removed_entites=[-1],int_ext=-1)
 
     if geometry_order !== :linear
         error("Currently only linear element supported")
@@ -69,11 +69,11 @@ function load3dTriangularMesh(mesh_file;m=3,n=3,
 
     if physics_order == :geometry
         physics_function = set_physics_element(physics_order,shape_function,beta_type)
-        normals = get_element_normals(shape_function,coordinates,topology)
+        normals = get_element_normals(shape_function,coordinates,topology,int_ext)
         physics_topology = topology
     elseif physics_order == :linear
         physics_function = TriangularLinear(3,3)
-        normals = get_element_normals(shape_function,coordinates,topology)
+        normals = get_element_normals(shape_function,coordinates,topology,int_ext)
         physics_topology = topology[1:3,:]
         used_nodes = sort(unique(physics_topology))
         normals = normals[:,used_nodes]
@@ -83,7 +83,7 @@ function load3dTriangularMesh(mesh_file;m=3,n=3,
         sources,normals,physics_topology = compute_sources(shape_function,
                                                         physics_function,
                                                         topology,
-                                                        coordinates)
+                                                        coordinates,int_ext)
     end
 
     # Allocate and compute tangent directions from normal

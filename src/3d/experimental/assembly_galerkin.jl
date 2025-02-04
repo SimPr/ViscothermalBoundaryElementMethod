@@ -49,16 +49,16 @@ end
 
 
 """
-    assemble_parallel_galerkin!(mesh::Mesh3d,k,sources;
+    assemble_parallel_galerkin!(mesh::Mesh3d,k,sources,int_ext;
                         m=5,n=5,fkernel=F3d!,gkernel=G3d!,ckernel=G03d!,progress=true)
 
 Assembles the BEM matrices for F, G and G0 kernels over the elements on the mesh.
 """
-function assemble_parallel_galerkin!(mesh::Mesh3d,k;mtest=3,ntest=3,mbasis=4,nbasis=4,progress=true)
-    return assemble_parallel_galerkin!(mesh::Mesh3d,k,mesh.shape_function; progress=progress,
+function assemble_parallel_galerkin!(mesh::Mesh3d,k,int_ext;mtest=3,ntest=3,mbasis=4,nbasis=4,progress=true)
+    return assemble_parallel_galerkin!(mesh::Mesh3d,k,mesh.shape_function,int_ext; progress=progress,
                                     mtest=mtest,ntest=ntest,mbasis=mbasis,nbasis=nbasis)
 end
-function assemble_parallel_galerkin!(mesh::Mesh3d,k,shape_function::SurfaceFunction;
+function assemble_parallel_galerkin!(mesh::Mesh3d,k,shape_function::SurfaceFunction,int_ext;
                             mtest=3,ntest=3,mbasis=4,nbasis=4,progress=true)
     nElements   = number_of_elements(mesh)
     nSources    = size(mesh.sources,2)
@@ -69,8 +69,8 @@ function assemble_parallel_galerkin!(mesh::Mesh3d,k,shape_function::SurfaceFunct
     ======================================================================================#
     test_function       = create_shape_function(shape_function;n=ntest,m=mtest)
     basis_function      = create_shape_function(shape_function;n=nbasis,m=mbasis)
-    test_interpolation  = interpolate_elements(mesh,test_function)
-    basis_interpolation = interpolate_elements(mesh,basis_function)
+    test_interpolation  = interpolate_elements(mesh,test_function,int_ext)
+    basis_interpolation = interpolate_elements(mesh,basis_function,int_ext)
     test_physics        = deepcopy(physics_function)
     basis_physics       = deepcopy(physics_function)
     copy_interpolation_nodes!(test_physics,test_function)

@@ -14,13 +14,14 @@ using IterativeSolvers
     geometry_orders = [:linear,:quadratic]
     # physics_orders  = [:linear,:quadratic,:disctriconstant,:disctrilinear,:disctriquadratic]
     physics_orders  = [:linear,:quadratic]
+    int_ext = -1; # exterior problem
     for go in geometry_orders, po in physics_orders
         if go == :linear && po == :quadratic
             continue
         end
         mesh = load3dTriangularComsolMesh(mesh_file;geometry_order=go,physics_order=po)
         k = 1.0
-        HG = BoundaryIntegralEquations.HGOperator(mesh,k)
+        HG = BoundaryIntegralEquations.HGOperator(mesh,k,int_ext)
         x = ones(size(HG,2))
         y = HG*x
         xg = gmres(HG,y)
@@ -36,6 +37,7 @@ geometry_orders = [:linear,:quadratic]
 physics_orders  = [:linear,:quadratic,:disctriconstant,:disctrilinear,:disctriquadratic]
 go = geometry_orders[2]
 po = physics_orders[1]
+int_ext = -1; # exterior problem
 # for go in geometry_orders, po in physics_orders
     # if go == :linear && po == :quadratic
         # continue
@@ -44,7 +46,7 @@ po = physics_orders[1]
     # TODO
 # end
 k = 1.0
-HG = BoundaryIntegralEquations.HGOperator(mesh,k)
+HG = BoundaryIntegralEquations.HGOperator(mesh,k,int_ext)
 x = ones(size(HG,2))
 y = HG*x
 xg = gmres(HG,y)

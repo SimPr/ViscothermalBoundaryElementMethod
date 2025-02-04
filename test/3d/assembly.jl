@@ -21,6 +21,7 @@ import BoundaryIntegralEquations: incoming_wave, plane_wave_scattering_sphere
     physics_orders = [:linear,:geometry,:disctriconstant,:disctrilinear,:disctriquadratic]
     errors = [0.037 0.0063 0.0073 0.0044 0.004;
               0.048 2.8e-5 0.0008 4.2e-4 4.9e-5]
+    int_ext = -1; # exterior problem
     for (i,go) in enumerate(geometry_orders), (j,po) in enumerate(physics_orders)
         if go == :linear && po == :geometry
             continue
@@ -29,7 +30,7 @@ import BoundaryIntegralEquations: incoming_wave, plane_wave_scattering_sphere
         #===================================================================================
                                         Assembling
         ===================================================================================#
-        Fp,_,Cp = assemble_parallel!(mesh,k,mesh.sources;progress=false,gOn=false)
+        Fp,_,Cp = assemble_parallel!(mesh,k,mesh.sources,int_ext;progress=false,gOn=false)
         pI      = incoming_wave(angles,1.0,mesh.sources,k)
         #===================================================================================
                     Setting up a linear system and solving for the pressure
@@ -54,6 +55,7 @@ end
     physics_orders  = [:linear,:geometry,:discquadconstant,:discquadlinear,:discquadquadratic]
     errors = [0.012 0.012 0.014 0.009 0.008;
               0.004 2.8e-5 0.0019 0.003 5.9e-5]
+    int_ext = -1; # exterior problem
     for (i,go) in enumerate(geometry_orders), (j,po) in enumerate(physics_orders)
         if go == :linear && po == :geometry
             continue
@@ -62,7 +64,7 @@ end
         #===================================================================================
                                         Assembling
         ===================================================================================#
-        Fp,_,Cp = assemble_parallel!(mesh,k,mesh.sources;progress=false,gOn=false)
+        Fp,_,Cp = assemble_parallel!(mesh,k,mesh.sources,int_ext;progress=false,gOn=false)
         pI      = incoming_wave(angles,1.0,mesh.sources,k)
         #===================================================================================
                     Setting up a linear system and solving for the pressure

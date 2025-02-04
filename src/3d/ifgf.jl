@@ -26,7 +26,7 @@ end
 ==========================================================================================#
 """
     IFGFGOperator(k,G,C,nearfield_correction,coefficients)
-    IFGFGOperator(mesh,k;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+    IFGFGOperator(mesh,k,int_ext;tol=1e-4,n_gauss=3,nearfield=true,offset=0.2,depth=1)
 
 A `LinearMap` that represents the BEM ``\\mathbf{G}`` matrix through the IFGF-matrix approach.
 This matrix has ``k``th row given by ``\\mathbf{z}=\\mathbf{z}_k`` in the following
@@ -63,12 +63,12 @@ function LinearMaps._unsafe_mul!(y, A::IFGFGOperator, x::AbstractVector)
     return y
 end
 
-function IFGFGOperator(mesh,k;tol=1e-3,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+function IFGFGOperator(mesh,k,int_ext;tol=1e-3,n_gauss=3,nearfield=true,offset=0.2,depth=1)
     # Making sure the wave number is complex
     zk = Complex(k)
     # Setup operator
     sources,_,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,nearfield,
-                                                                    offset,depth)
+                                                                    offset,depth,int_ext)
     # Extracting targets
     targets = mesh.sources
     # Creating temporary array

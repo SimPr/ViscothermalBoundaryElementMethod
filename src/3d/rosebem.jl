@@ -45,7 +45,7 @@ function compute_taylor_integrals!(physics_interpolation,interpolation_element,
 end
 
 """
-    taylor_assemble!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
+    taylor_assemble!(mesh::Mesh3d,k,in_sources,shape_function::Triangular,int_ext;
                             M=0,fOn=true,gOn=true,cOn=true,m=3,n=3,progress=true,V=I)
 
 Return:
@@ -53,7 +53,7 @@ Return:
  * `Grom`: Contains the derivatives of the `G`-matrix.
  * `C`: Contains the integral free term.
 """
-function taylor_assemble!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
+function taylor_assemble!(mesh::Mesh3d,k,in_sources,shape_function::Triangular,int_ext;
                             M=0,fOn=true,gOn=true,cOn=true,m=3,n=3,progress=true,V=I)
     n_elements  = number_of_elements(mesh)
     sources     = convert.(eltype(shape_function),in_sources)
@@ -80,9 +80,9 @@ function taylor_assemble!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
     copy_interpolation_nodes!(physics_function3,shape_function3)
 
     # Computing interpolation on each element
-    interpolation_list1 = interpolate_elements(mesh,shape_function1)
-    interpolation_list2 = interpolate_elements(mesh,shape_function2)
-    interpolation_list3 = interpolate_elements(mesh,shape_function3)
+    interpolation_list1 = interpolate_elements(mesh,shape_function1,int_ext)
+    interpolation_list2 = interpolate_elements(mesh,shape_function2,int_ext)
+    interpolation_list3 = interpolate_elements(mesh,shape_function3,int_ext)
 
     # Copying interpolation of physics functions1
     physics_interpolation1 = copy(physics_function1.interpolation')
@@ -223,7 +223,7 @@ function arnoldi_basis(A,b,q)
 end
 
 """
-    scattering_krylov_basis(mesh,klist;eps=1-4,n_gauss=3,verbose=true,P₀=1,progress=true)
+    scattering_krylov_basis(mesh,klist,int_ext;eps=1-4,n_gauss=3,verbose=true,P₀=1,progress=true)
 
 Computes a reduced basis for the scattering of an incident wave.
 The basis is defined by computing the solution at the wavenumbers defined in `klist`.
@@ -233,7 +233,7 @@ Returns:
  * `solutions`: Colums equal to the solution at each wavenumbers in `klist`.
  * `qlist`: The number of Krylov vectors used at each wavenumber in `klist`.
 """
-function scattering_krylov_basis(mesh,klist;eps=1-4,n_gauss=3,verbose=true,P₀=1,progress=true)
+function scattering_krylov_basis(mesh,klist,int_ext;eps=1-4,n_gauss=3,verbose=true,P₀=1,progress=true)
     n_sources = size(mesh.sources,2)
     nK       = length(klist)
     V = zeros(ComplexF64,n_sources, 0)      # Preallocating the total Krylov system
@@ -245,11 +245,11 @@ function scattering_krylov_basis(mesh,klist;eps=1-4,n_gauss=3,verbose=true,P₀=
     for i = 0:nK-1
         k = klist[i+1]
         pI = P₀*exp.(im*k*mesh.sources[3,:]);
-        Ff = FMMFOperator(mesh,k;n_gauss=n_gauss);
+        Ff = FMMFOperator(mesh,k,int_ext;n_gauss=n_gauss);
         Hf = Ff + 0.5I;
         p_fmm,history = gmres(Hf,pI;verbose=verbose,log=true);
         solutions[:,i+1] = p_fmm
-        # F0, _, C0 = taylor_assemble!(mesh,k0,mesh.sources,mesh.shape_function;n=2,m=2,M=20,gOn=false)
+        # F0, _, C0 = taylor_assemble!(mesh,k0,mesh.sources,mesh.shape_function,int_ext;n=2,m=2,M=20,gOn=false)
         # V[:,i*q+1:(i+1)*q] = arnoldiBLI(A,b,q)
         V = [V arnoldi_basis(Hf,pI,history.iters)]
         qlist[i+1] = history.iters

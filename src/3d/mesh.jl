@@ -70,12 +70,12 @@ function tangents!(normals, tangent1, tangent2)
 end
 
 """
-    get_element_normals(shape_function::Triangular,coordinates, topology)
+    get_element_normals(shape_function::Triangular,coordinates, topology,int_ext)
 
 Compute the normal as the average normal of all normals from the different elements
 that a `coordinate` is connected to via `topology`.
 """
-function get_element_normals(shape_function::SurfaceFunction,coordinates,topology)
+function get_element_normals(shape_function::SurfaceFunction,coordinates,topology,int_ext)
     # Copying geometry element
     surface_function = deepcopy(shape_function)
     # Setting the interpolation to be on the nodal values
@@ -104,15 +104,16 @@ function get_element_normals(shape_function::SurfaceFunction,coordinates,topolog
     end
     # Setting normal equal to the average normal
     normals = normals ./ average
-    return -normals ./ sqrt.(sum(abs2,normals,dims=1)) # Normalizing + fixing orientation
+    normals .= int_ext .* normals ./ sqrt.(sum(abs2,normals,dims=1)) # Normalizing + fixing orientation
+    return normals
 end
 
 """
-    compute_sources(shape_function,physics_function,topology,coordinates)
+    compute_sources(shape_function,physics_function,topology,coordinates,int_ext)
 
 Computes the nodal position for discontinuous elements.
 """
-function compute_sources(shape_function,physics_function,topology,coordinates)
+function compute_sources(shape_function,physics_function,topology,coordinates,int_ext)
     # Getting the number of functions for the discontinuous element
     n_shape_functions = number_of_shape_functions(physics_function)
     # Get the number of elemenets
@@ -141,7 +142,7 @@ function compute_sources(shape_function,physics_function,topology,coordinates)
         mul!(tangent1,element_coordinates,surface_function.derivatives_u)
         mul!(tangent2,element_coordinates,surface_function.derivatives_v)
         cross_product!(normal,tangent1,tangent2)
-        normals[:,element_sources] .= -normal ./ sqrt.(sum(normal.^2,dims=1))
+        normals[:,element_sources] .= int_ext .* normal ./ sqrt.(sum(normal.^2,dims=1)) # Normalizing + fixing orientation
         # normals[:,element_sources] .= -sources[:,element_sources] ./ sqrt.(sum(sources[:,element_sources].^2,dims=1))
     end
     return sources,normals,physics_topology
@@ -164,7 +165,8 @@ function set_physics_element(physics_order,shape_function,beta_type)
         beta = get_beta_tri_linear(beta_type)
         return DiscontinuousTriangularLinear(shape_function,beta)
     elseif physics_order == :disctriquadratic
-        beta = get_beta_tri_quadratic(beta_type)
+        #beta = get_beta_tri_quadratic(beta_type)
+        beta = 0.196/2
         return DiscontinuousTriangularQuadratic(shape_function,beta)
     elseif physics_order == :discquadconstant
         return DiscontinuousQuadrilateralConstant(shape_function)
@@ -220,7 +222,7 @@ end
 # """
 # function get_element_ares(mesh::Mesh3d)
 #     # Interpolating on each elements
-#     interpolations = interpolate_elements(mesh)
+#     interpolations = interpolate_elements(mesh,-1)
 #     # Preallocation
 #     areas = zeros(length(interpolations))
 #     # Extracting the areas of each elements as the sum of jacobian*weights
@@ -263,7 +265,7 @@ end
 
 function get_element_ares(mesh::Mesh3d;n=10)
     # Interpolating on each elements
-    interpolations = interpolate_elements(mesh;n=n)
+    interpolations = interpolate_elements(mesh,-1;n=n)
     # Preallocation
     areas = zeros(length(interpolations))
     # Extracting the areas of each elements as the sum of jacobian*weights

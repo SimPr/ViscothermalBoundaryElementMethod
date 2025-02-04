@@ -257,7 +257,7 @@ end
                                 Constructors
 ===========================================================================================#
 function LossyOneVariableOuter(mesh::Mesh3d,freq;S=1,depth=1,exterior=true,
-                            nearfield=true,n=3,thres=1e-6,offset=0.2)
+                            nearfield=true,n=3,thres=1e-6,offset=0.2,int_ext=-1)
     # Extracting local (n,t,s) coordinate systems
     nx = mesh.normals[1,:]
     ny = mesh.normals[2,:]
@@ -289,11 +289,11 @@ function LossyOneVariableOuter(mesh::Mesh3d,freq;S=1,depth=1,exterior=true,
     ### Assembling the 3 BEM systems
     # Thermal matrices
     @info "Thermal Matrices:"
-    Fₕ,Bₕ = assemble_parallel!(mesh,kₕ,sources;sparse=true,depth=depth);
+    Fₕ,Bₕ = assemble_parallel!(mesh,kₕ,sources,int_ext;sparse=true,depth=depth);
     Aₕ = (exterior ?  Fₕ + I/2 : -Fₕ + I/2)
     # Viscous matrices
     @info "Viscous matrices:"
-    Fᵥ,Bᵥ  = assemble_parallel!(mesh,kᵥ,sources;sparse=true,depth=depth);
+    Fᵥ,Bᵥ  = assemble_parallel!(mesh,kᵥ,sources,int_ext;sparse=true,depth=depth);
     Aᵥ = (exterior ?  Fᵥ + I/2 : -Fᵥ + I/2)
 
     ### Computing tangential derivatives
@@ -310,8 +310,8 @@ function LossyOneVariableOuter(mesh::Mesh3d,freq;S=1,depth=1,exterior=true,
 
     # Computing relevant constants
     @info "Acoustic Matrices:"
-    Ga = FMMGOperator(mesh,kₐ;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield)
-    Fa = FMMFOperator(mesh,kₐ;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield)
+    Ga = FMMGOperator(mesh,kₐ,int_ext;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield)
+    Fa = FMMFOperator(mesh,kₐ,int_ext;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield)
     Ha = (exterior ? Fa + I/2 : -Fa + I/2)
     return LossyOneVariableOuter(N,Ha,Ga,Aₕ,Bₕ,luGh,Aᵥ,Bᵥ,
                             luGv,inner,Dt₁,Dt₂,
@@ -320,7 +320,7 @@ function LossyOneVariableOuter(mesh::Mesh3d,freq;S=1,depth=1,exterior=true,
 end
 
 function LossyOneVariableOuter(mesh::Mesh3d,BB::LossyBlockMatrix,freq;depth=1,
-                        lu_on=false,fmm_on=false,nearfield=true,n=3,thres=1e-6,offset=0.2)
+                        lu_on=false,fmm_on=false,nearfield=true,n=3,thres=1e-6,offset=0.2,int_ext=-1)
     τₐ = BB.τₐ
     τₕ = BB.τₕ
     ϕₐ = BB.ϕₐ
@@ -360,8 +360,8 @@ function LossyOneVariableOuter(mesh::Mesh3d,BB::LossyBlockMatrix,freq;depth=1,
                                     inner_tmp1, inner_tmp2,lu_on)
     if fmm_on
         _,_,_,ka,_,_,_,_,_,_,_,_ = visco_thermal_constants(;freq=freq,S=1)
-        Ga = FMMGOperator(mesh,ka;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield,depth=depth)
-        Ha = FMMFOperator(mesh,ka;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield,depth=depth) + I/2
+        Ga = FMMGOperator(mesh,ka,int_ext;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield,depth=depth)
+        Ha = FMMFOperator(mesh,ka,int_ext;n_gauss=n,tol=thres,offset=offset,nearfield=nearfield,depth=depth) + I/2
         outer = LossyOneVariableOuter(N,Ha,Ga,BB.Aₕ,BB.Bₕ,luGh,BB.Aᵥ,BB.Bᵥ,
                                 luGv,inner,BB.Dt₁,BB.Dt₂,
                                 nx,ny,nz,tx,ty,tz,sx,sy,sz,ϕₐ,ϕₕ,τₐ,τₕ,

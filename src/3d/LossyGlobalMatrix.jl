@@ -62,6 +62,8 @@ struct LossyGlobalOuter{T} <: LinearMaps.LinearMap{T}
     # Combinations
     mu_a::T
     mu_h::T
+
+    C0
 end
 #==========================================================================================
                     Constructor (Assembling) of a LossyBlockMatrix
@@ -69,7 +71,7 @@ end
 """
     LossyGlobalOuter(mesh::Mesh, freq;
                 m=3,n=3,l=90,p=90,S=-1,sparsity=20.0,
-                exterior=true,adaptive=false)
+                exterior=true,adaptive=false,int_ext=-1)
 
 A `LinearMap` corresponding to the reduced lossy system.
 """
@@ -77,7 +79,7 @@ function LossyGlobalOuter(mesh::Mesh,freq;
                             progress=true,integral_free_term=[],
                             hmatrix_on=false,sparse_offset=nothing,
                             depth=1,sparse_assembly=true,exterior=true,sparse_lu=false,
-                            m=3,n=3,S=1,fmm_on=false,nearfield=true,thres=1e-6,fmm_offset=0.2)
+                            m=3,n=3,S=1,fmm_on=false,nearfield=true,thres=1e-6,fmm_offset=0.2,int_ext=-1)
     if fmm_on == false && size(mesh.normals,2) > 20000
         @warn "Using a dense formulation with a mesh of this size can be problematic"
     end
@@ -94,7 +96,7 @@ function LossyGlobalOuter(mesh::Mesh,freq;
     ### Extracting the number of nodes (and hence also the total matrix size)
     nSource = size(sources,2)
 
-    # Defining Diagonal Entries
+#=     # Defining Diagonal Entries >> seems unnecessary
     if isempty(integral_free_term)
         C0 = Diagonal(ones(eltype(kₕ),nSource)/2)
     elseif length(integral_free_term) == nSource
@@ -102,34 +104,41 @@ function LossyGlobalOuter(mesh::Mesh,freq;
     elseif !(length(integral_free_term) == nSource)
         throw(DimensionMismatch("Length of user-specified integral free terms,"*
         "$(length(integral_free_term)), is not equal to the number of sources, $(nSource)"))
-    end
+    end =#
     ### Assembling the 3 BEM systems
     if progress; @info("Acoustic Matrices:"); end
     if fmm_on && hmatrix_on
         throw(ArgumentError("You can not both use the FMM and H-matrices"))
     elseif fmm_on && !hmatrix_on
-        Ga = FMMGOperator(mesh,kₐ;
+        Ga = FMMGOperator(mesh,kₐ,int_ext;
                         n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth)
-        Ha = FMMFOperator(mesh,kₐ;
-                        n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth) + I/2
+        Ha = FMMFOperator(mesh,kₐ,int_ext;
+                        n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth) + I/2 # this is probably wrong
+        C0 = Diagonal(ones(eltype(kₕ),nSource)/2)
     elseif !fmm_on && hmatrix_on
-        Ga = HGOperator(mesh,kₐ;n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth)
-        Ha = HFOperator(mesh,kₐ;n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth)
+        Ga = HGOperator(mesh,kₐ,int_ext;n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth)
+        Ha = HFOperator(mesh,kₐ,int_ext;n_gauss=n,tol=thres,offset=fmm_offset,nearfield=nearfield,depth=depth)
+        C0 = Diagonal(ones(eltype(kₕ),nSource)/2)
     else
-        Ha,Ga,C = assemble_parallel!(mesh,kₐ,sources;m=m,n=n,progress=progress)
-        C0 = (exterior ? Diagonal(C) : Diagonal(1.0 - C))
-        Ha = (exterior ? Ha + C0 : -Ha + C0)
+        Ha,Ga,C = assemble_parallel!(mesh,kₐ,sources,int_ext;m=m,n=n,progress=progress)
+        if int_ext == -1
+            C0 = Diagonal(-C .+ 1.)
+        else
+            C0 = Diagonal(-C)
+        end
+        #C0 = (exterior ? Diagonal(C) : Diagonal(1.0 - C)) # this is not correct, for interior C0=-Int(dG(k=0)/dn)=0.5 and for exterior C0=1-Int(dG(k=0)/dn)=1-0.5=0.5 both of which needs to be added to H
+        Ha += C0
     end
     # Thermal matrices
     if progress; @info("Thermal Matrices:"); end
-    Hh,Gh = assemble_parallel!(mesh,kₕ,sources;offset=sparse_offset,
+    Hh,Gh = assemble_parallel!(mesh,kₕ,sources,int_ext;offset=sparse_offset,
                         sparse=sparse_assembly,depth=depth,progress=progress);
-    Hh = (exterior ?  Hh + C0 : -Hh + C0)
+    Hh += C0
     # Viscous matrices
     if progress; @info("Viscous matrices:"); end
-    Fᵥ,Bᵥ  = assemble_parallel!(mesh,kᵥ,sources;offset=sparse_offset,
+    Fᵥ,Bᵥ  = assemble_parallel!(mesh,kᵥ,sources,int_ext;offset=sparse_offset,
                         sparse=sparse_assembly,depth=depth,progress=progress);
-    Aᵥ = (exterior ?  Fᵥ + C0 : -Fᵥ + C0)
+    Aᵥ = Fᵥ + C0
     ### Computing tangential derivatives
     Dx,Dy,Dz = interpolation_function_derivatives(mesh)
 
@@ -158,7 +167,7 @@ function LossyGlobalOuter(mesh::Mesh,freq;
                                 Hv,vlu,
                                 Nd,Dc,Dr,
                                 inner,
-                                ϕₐ,ϕₕ,τₐ,τₕ,mu_a,mu_h)
+                                ϕₐ,ϕₕ,τₐ,τₕ,mu_a,mu_h,C0)
     else
         inner = LossyGlobalInner(nSource,Hv,Gv,Nd,Dr)
         return LossyGlobalOuter(nSource,
@@ -167,7 +176,7 @@ function LossyGlobalOuter(mesh::Mesh,freq;
                             Hv,Gv,
                             Nd,Dc,Dr,
                             inner,
-                            ϕₐ,ϕₕ,τₐ,τₕ,mu_a,mu_h)
+                            ϕₐ,ϕₕ,τₐ,τₕ,mu_a,mu_h,C0)
     end
 end
 #==========================================================================================
@@ -263,5 +272,62 @@ function _full1_new(A::LossyGlobalOuter)
     Ri = RN\RD
     
     return A.Ga*(A.mu_a*(Ri) + A.mu_h*(A.Gh\Matrix(A.Hh))) - A.phi_a*A.Ha   
+end
+
+
+#==========================================================================================
+                    Constructor (Assembling) of a LossyBlockMatrix for field point evaluation
+==========================================================================================#
+
+struct LossyGlobalOuter_fp{T} <: LinearMaps.LinearMap{T}
+    Ha                          # Acoustical BEM H
+    Ga                          # Acoustical BEM G
+    Hh::AbstractArray{T}        # Thermal BEM H
+    Gh                          # Thermal BEM G
+    Hv::AbstractArray{T}        # Viscous BEM H
+    Gv                          # Viscous BEM GH
+    C0
+end
+
+
+function LossyGlobalOuter_fp(mesh::Mesh,sources,freq;
+                            progress=true,
+                            sparse_offset=nothing,
+                            depth=1,sparse_assembly=true,
+                            m=3,n=3,S=1,int_ext=-1)
+    if (typeof(mesh.physics_function) <: DiscontinuousTriangularConstant)
+        ArgumentError("Constant elements will have a tangential derivative equal to zero.")
+    end
+    # Computing physical constants
+    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=freq,S=S)
+
+    ### Assembling the 3 BEM systems
+    if progress; @info("Acoustic Matrices:"); end
+    Ha,Ga,C = assemble_parallel!(mesh,kₐ,sources,int_ext;m=m,n=n,progress=progress)
+    
+    if int_ext == -1
+        C0 = -C .+ 1.
+    else
+        C0 = -C
+    end
+
+    # Thermal matrices
+    if progress; @info("Thermal Matrices:"); end
+    Hh,Gh = assemble_parallel!(mesh,kₕ,sources,int_ext;offset=sparse_offset,
+                        sparse=false,depth=depth,progress=progress);
+
+    # Viscous matrices
+    if progress; @info("Viscous matrices:"); end
+    Hv,Gv  = assemble_parallel!(mesh,kᵥ,sources,int_ext;offset=sparse_offset,
+                        sparse=false,depth=depth,progress=progress);
+
+    # Gv = blockdiag(Bᵥ, Bᵥ, Bᵥ)
+    # Hv = blockdiag(Fᵥ, Fᵥ, Fᵥ)
+
+
+    return LossyGlobalOuter_fp(Ha,Ga,
+                            Hh,Gh,
+                            Hv,Gv,
+                            C0)
 end
     

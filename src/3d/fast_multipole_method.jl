@@ -2,13 +2,13 @@
                             Partial Assembly
 ==========================================================================================#
 """
-    partial_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
+    partial_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular,int_ext;
                                     fOn=true,gOn=true,n=3,progress=false,depth=1)
 
 Assembles only local contributions in the BEM computations.
 This is used for singularity extraction when using the Fast Mulitpole Method (FMM) for BEM.
 """
-function partial_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular;
+function partial_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Triangular,int_ext;
                                     fOn=true,gOn=true,n=3,progress=false,depth=1)
     # Extracting mesh information
     topology    = get_topology(mesh)
@@ -64,7 +64,7 @@ function partial_assemble_parallel!(mesh::Mesh3d,k,in_sources,shape_function::Tr
                                         normals, tangents,sangents,
                                         interpolation,jacobian,r,integrand,
                                         element_coordinates,
-                                        fOn,gOn,submatrixF,submatrixG,k,source)
+                                        fOn,gOn,submatrixF,submatrixG,k,source,int_ext)
         end
         if progress; next!(prog); end
     end
@@ -147,18 +147,18 @@ function scale_columns!(dipvecs,normals,scalings)
 end
 
 """
-    setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth;single_layer=true)
+    setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth,int_ext;single_layer=true)
 
 Computes `sources`, `normals`, `C_map` and the `nearfield_correction` required when setting up a fast operator.
 """
-function setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth;single_layer=true)
+function setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth,int_ext;single_layer=true)
     # Setting up elements with the correct number of Gaussian points
     shape_function   = deepcopy(mesh.shape_function)
     physics_function = deepcopy(mesh.physics_function)
     set_interpolation_nodes!(shape_function,gauss_points_triangle(n_gauss)...)
     copy_interpolation_nodes!(physics_function,shape_function)
     # Interpolating on the mesh using the previous computed shape/physics functions
-    interpolations = interpolate_elements(mesh,shape_function)
+    interpolations = interpolate_elements(mesh,shape_function,int_ext)
     sources,weights,normals = unroll_interpolations(interpolations)
     C_map = create_coefficient_map(weights,mesh.physics_topology,physics_function,n_gauss)
     # Extracting mesh information
@@ -166,12 +166,12 @@ function setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth;single_layer
     N = size(targets,2)
     # Computing near-field correction
     if nearfield && single_layer
-        _,C = partial_assemble_parallel!(mesh,zk,targets,shape_function;fOn=false,depth=depth)
-        _,S = assemble_parallel!(mesh,zk,targets;sparse=true,depth=depth,fOn=false,progress=false,offset=offset);
+        _,C = partial_assemble_parallel!(mesh,zk,targets,shape_function,int_ext;fOn=false,depth=depth)
+        _,S = assemble_parallel!(mesh,zk,targets,int_ext;sparse=true,depth=depth,fOn=false,progress=false,offset=offset);
         nearfield_correction = - C + S
     elseif nearfield && !single_layer
-        C,_ = partial_assemble_parallel!(mesh,zk,targets,shape_function;gOn=false,depth=depth)
-        S,_ = assemble_parallel!(mesh,zk,targets;sparse=true,depth=depth,gOn=false,offset=offset,progress=false);
+        C,_ = partial_assemble_parallel!(mesh,zk,targets,shape_function,int_ext;gOn=false,depth=depth)
+        S,_ = assemble_parallel!(mesh,zk,targets,int_ext;sparse=true,depth=depth,gOn=false,offset=offset,progress=false);
         nearfield_correction = - C + S
     else
         nearfield_correction = spzeros(ComplexF64,N,N)
@@ -183,7 +183,7 @@ end
 ==========================================================================================#
 """
     FMMGOperator(k,tol,targets,sources,C,coefficients,nearfield_correction)
-    FMMGOperator(mesh,k;tol=1e-6,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+    FMMGOperator(mesh,k,int_ext;tol=1e-6,n_gauss=3,nearfield=true,offset=0.2,depth=1)
 
 A `LinearMap` that represents the BEM ``\\mathbf{G}`` matrix through the FMM.
 This matrix has ``k``th row given by ``\\mathbf{z}=\\mathbf{z}_k`` in the following
@@ -235,11 +235,11 @@ function LinearAlgebra.mul!(y::AbstractVecOrMat{T},
     y .= vals.pottarg/4π + A.nearfield_correction*x
 end
 
-function FMMGOperator(mesh,k;tol=1e-6,n_gauss=3,nearfield=true,offset=0.2,depth=1)
+function FMMGOperator(mesh,k,int_ext;tol=1e-6,n_gauss=3,nearfield=true,offset=0.2,depth=1)
     # Making sure the wave number is complex
     zk = Complex(k)
     # Setup operator
-    sources,_,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth)
+    sources,_,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth,int_ext)
     # Extracting targets
     targets = mesh.sources
     # Allocating array for intermediate computations
@@ -278,7 +278,7 @@ end
 ==========================================================================================#
 """
     FMMFOperator(k,tol,targets,sources,normals,C,coefficients,dipvecs,nearfield_correction)
-    FMMFOperator(mesh,k;n_gauss=3,tol=1e-6,nearfield=true,offset=0.2,depth=1,)
+    FMMFOperator(mesh,k,int_ext;n_gauss=3,tol=1e-6,nearfield=true,offset=0.2,depth=1,)
 
 A `LinearMap` that represents the BEM ``\\mathbf{H}`` matrix through the FMM.
 This matrix has ``k``th row given by ``\\mathbf{z}=\\mathbf{z}_k`` in the following
@@ -335,11 +335,11 @@ function LinearAlgebra.mul!(y::AbstractVecOrMat{T},
     y .= vals.pottarg/4π + A.nearfield_correction*x
 end
 
-function FMMFOperator(mesh,k;n_gauss=3,tol=1e-6,nearfield=true,offset=0.2,depth=1)
+function FMMFOperator(mesh,k,int_ext;n_gauss=3,tol=1e-6,nearfield=true,offset=0.2,depth=1)
     # Making sure the wave number is complex
     zk = Complex(k)
     # Setup operator
-    sources,normals,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth;single_layer=false)
+    sources,normals,C_map,nearfield_correction = setup_fast_operator(mesh,zk,n_gauss,nearfield,offset,depth,int_ext;single_layer=false)
     # Creating targets
     targets = mesh.sources
     # Allocating arrays for intermediate computations
