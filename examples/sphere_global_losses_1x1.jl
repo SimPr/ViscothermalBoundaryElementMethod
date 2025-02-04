@@ -158,7 +158,7 @@ scatter!(ang_axis,real.(vt_sum_fmm),label="FMBEM",marker=:x,markersize=1,color=:
 plot!(ang_axis[perm],real.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle"); ylabel!("Re(Vt)");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal1x1FMM_Real_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal1x1FMM_Real_$(M)DOFs_$(freq)Hz.png")
 
 plt1 = scatter(ang_axis,imag.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
 scatter!(ang_axis,imag.(pa_fmm),label="FMBEM",marker=:x,markersize=1,color=:red,markerstrokewidth=0.5);
@@ -172,7 +172,7 @@ scatter!(ang_axis,imag.(vt_sum_fmm),label="FMBEM",marker=:x,markersize=1,color=:
 plot!(ang_axis[perm],imag.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle"); ylabel!("Imag(Vt)");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal1x1FMM_Imag_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal1x1FMM_Imag_$(M)DOFs_$(freq)Hz.png")
 
 plt1 = scatter(ang_axis,abs.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
 scatter!(ang_axis,abs.(pa_fmm),label="FMBEM",marker=:x,markersize=1,color=:red,markerstrokewidth=0.5);
@@ -186,4 +186,4 @@ scatter!(ang_axis,abs.(vt_sum_fmm),label="FMBEM",marker=:x,markersize=1,color=:r
 plot!(ang_axis[perm],abs.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle"); ylabel!("|Vt|");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal1x1FMM_Abs_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal1x1FMM_Abs_$(M)DOFs_$(freq)Hz.png")

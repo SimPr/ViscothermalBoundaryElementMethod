@@ -11,8 +11,8 @@ using IterativeSolvers
 geometry_orders     = [:linear,:quadratic]
 tri_physics_orders  = [:linear,:geometry,:disctriconstant,:disctrilinear,:disctriquadratic]
 # Triangular Meshes
-tri_mesh_file = "examples/meshes/sphere_1m_coarser"
-# tri_mesh_file = "examples/meshes/sphere_1m"
+# tri_mesh_file = "examples/meshes/sphere_1m_coarser"
+tri_mesh_file = "examples/meshes/sphere_1m"
 # tri_mesh_file = "examples/meshes/sphere_1m_fine"
 # tri_mesh_file = "examples/meshes/sphere_1m_finer"
 # tri_mesh_file = "examples/meshes/sphere_1m_extremely_fine"
@@ -62,7 +62,7 @@ scatter(ang_axis[1:K:end],real.(pa[1:K:end]),label="BEM - 10n",marker=:cross,mar
 plot!(ang_axis[perm],real.(pasAN[perm]),label="Analytical",linewidth=1,color=:blue);
 ylabel!("Re(Pa)");
 title!("Frequency = $(freq) Hz");
-xlabel!("Angle [deg]");
+xlabel!("Angle [deg]")
 #savefig("paGlobal10x10_$(M)DOFs_$(freq)Hz.png")
 #===========================================================================================
                                 Reconstructing unknowns
@@ -85,7 +85,7 @@ plt3 = scatter(ang_axis,real.(vt_sum),label="BEM",marker=:cross,markersize=2,col
 plot!(ang_axis[perm],real.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle [deg]"); ylabel!("Re(Vt)");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal10x10_Real_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal10x10_Real_$(M)DOFs_$(freq)Hz.png")
 
 plt1 = scatter(ang_axis,imag.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
 ylabel!("Imag(Pa)"); plot!(ang_axis[perm],imag.(pasAN[perm]),label="Analytical",linewidth=2,color=:blue);
@@ -96,7 +96,7 @@ plt3 = scatter(ang_axis,imag.(vt_sum),label="BEM",marker=:cross,markersize=2,col
 plot!(ang_axis[perm],imag.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle [deg]"); ylabel!("Imag(Vt)");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal10x10_Imag_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal10x10_Imag_$(M)DOFs_$(freq)Hz.png")
 
 plt1 = scatter(ang_axis,abs.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
 ylabel!("|Pa|"); plot!(ang_axis[perm],abs.(pasAN[perm]),label="Analytical",linewidth=2,color=:blue);
@@ -107,4 +107,4 @@ plt3 = scatter(ang_axis,abs.(vt_sum),label="BEM",marker=:cross,markersize=2,colo
 plot!(ang_axis[perm],abs.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle [deg]"); ylabel!("|Vt|");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal10x10_Abs_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal10x10_Abs_$(M)DOFs_$(freq)Hz.png")

@@ -84,7 +84,7 @@ plt3 = scatter(ang_axis,real.(vt_sum),label="BEM",marker=:cross,markersize=2,col
 plot!(ang_axis[perm],real.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle [deg]"); ylabel!("Re(Vt)");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal4x4_Real_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal4x4_Real_$(M)DOFs_$(freq)Hz.png")
 
 plt1 = scatter(ang_axis,imag.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
 ylabel!("Imag(Pa)"); plot!(ang_axis[perm],imag.(pasAN[perm]),label="Analytical",linewidth=2,color=:blue);
@@ -95,7 +95,7 @@ plt3 = scatter(ang_axis,imag.(vt_sum),label="BEM",marker=:cross,markersize=2,col
 plot!(ang_axis[perm],imag.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle [deg]"); ylabel!("Imag(Vt)");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal4x4_Imag_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal4x4_Imag_$(M)DOFs_$(freq)Hz.png")
 
 plt1 = scatter(ang_axis,abs.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
 ylabel!("|Pa|"); plot!(ang_axis[perm],abs.(pasAN[perm]),label="Analytical",linewidth=2,color=:blue);
@@ -106,4 +106,4 @@ plt3 = scatter(ang_axis,abs.(vt_sum),label="BEM",marker=:cross,markersize=2,colo
 plot!(ang_axis[perm],abs.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
 xlabel!("Angle [deg]"); ylabel!("|Vt|");
 plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-savefig("allGlobal4x4_Abs_$(M)DOFs_$(freq)Hz.png")
+#savefig("allGlobal4x4_Abs_$(M)DOFs_$(freq)Hz.png")
