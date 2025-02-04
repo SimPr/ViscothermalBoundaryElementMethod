@@ -167,6 +167,64 @@ function load3dTriangularComsolMesh_SphereCorr(mesh_file,radius;m=3,n=3,
                                                         coordinates,int_ext)
     end
 
+    # Allocate and compute tangent directions from normal
+    # This is to backwards-compatible to the old implementation of losses.
+    tangents = similar(normals)
+    sangents = similar(normals)
+    tangents!(normals,tangents,sangents)
+
+    # Setting the local-nodes of elements to be that of a regular triangle
+    set_interpolation_nodes!(shape_function,gauss_points_triangle(n)...)
+    copy_interpolation_nodes!(physics_function,shape_function)
+    # Finalizing mesh
+    mesh = Mesh3d(sources,coordinates,topology,normals,tangents,sangents,shape_function,
+                 physics_function,physics_topology,ents[mask])
+    if entites
+        return mesh,ents[mask]
+    else
+        return mesh
+    end
+end
+
+function load3dTriangularComsolMesh_SphereCorr_Disc(mesh_file,radius;m=3,n=3,
+    geometry_order=:quadratic,
+    physics_order=:disctriquadratic,beta_type=:legendre,
+    entites=false,removed_entites=[-1],int_ext=-1)
+
+	# Figuring out the element type
+	initial_coordinates,initial_topology,ents = read_comsol_mesh(mesh_file,TriangularQuadratic(2,2))
+	if geometry_order == :quadratic
+		shape_function = TriangularQuadratic(m,n)
+	elseif geometry_order == :linear
+		shape_function = TriangularLinear(m,n)
+		initial_topology = initial_topology[1:3,:]
+	else
+		error("Only quadratic and linear geometries are currently supported")
+	end
+
+	mask = .!convert.(Bool,sum(ents .∈ removed_entites,dims=1))[:]
+	used_nodes  = sort(unique(initial_topology[:,mask]))
+	topology    = remove_unused_nodes(initial_topology[:,mask])
+	coordinates = initial_coordinates[:,used_nodes]
+
+	# adjusting nodal positions to match theoretical radius of sphere
+	r = sqrt.(coordinates[1,:].^2+coordinates[2,:].^2+coordinates[3,:].^2)
+	scalingFactor = zeros(1,size(r,1))
+	scalingFactor[1,:] = radius./r
+	coordinates = scalingFactor.*coordinates
+
+	sources = coordinates[:,sort(unique(topology))]
+
+	if physics_order == :disctriquadratic
+		physics_function = set_physics_element(physics_order,shape_function,beta_type)
+		sources,normals,physics_topology = compute_sources(shape_function,
+													physics_function,
+													topology,
+													coordinates,int_ext)
+	else
+		error("Only quadratic discontinous elements are currently supported")
+	end
+
 	# Allocate and compute tangent directions from normal
 	# This is to backwards-compatible to the old implementation of losses.
 	tangents = similar(normals)
