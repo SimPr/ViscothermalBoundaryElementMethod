@@ -143,3 +143,26 @@ function sphere_first_order(k,c,rho,a,up,rtp;S=-1,kv=Inf)
     return p, v_r, v_theta, v_rA, v_thetaA, v_rV, v_thetaV
 
 end
+
+function sph_hankelNew(z)
+    # returns spherical hankel function 1st kind 1st order and its derivative
+    h1  = -exp.(1im*z)./z.^2 .*(z .+ 1im)
+    dh1 = exp.(1im*z)./z.^3 .*(2.0.*z .+ 1im.*(-z.^2 .+2.0))
+    return h1,dh1
+end
+
+function compute_a1(v0,k,kv,a)
+    # returns coefficient a1 needed for analytical solution
+    a1=-v0*k^2*a*exp(-1im*k*a)*(3*kv*a+3*1im-1im*kv^2*a^2)/(3*1im*(kv^2*(k^2*a^2-2.0)-k^2+1im*kv*k*a*(k+2*kv)))
+    return a1
+end
+
+function sphere_first_orderNew(v0,k,kv,a,theta,rho,c)
+    # returns analytical solution for sphere transversely oscillating in viscous fluid
+    a1 = compute_a1(v0,k,kv,a)
+    h1_ka,dh1_ka = sph_hankelNew(k*a)
+    pa = -3*rho*k*c*a1*h1_ka.*cos.(theta)
+    vv_r = (v0 - 3*1im*k*a1*dh1_ka).*cos.(theta)
+    vv_theta = (-v0 + 3*1im/a*a1*h1_ka).*sin.(theta)
+    return pa, vv_r, vv_theta
+end
