@@ -274,3 +274,60 @@ function _full1_new(A::LossyGlobalOuter)
     return A.Ga*(A.mu_a*(Ri) + A.mu_h*(A.Gh\Matrix(A.Hh))) - A.phi_a*A.Ha   
 end
 
+
+#==========================================================================================
+                    Constructor (Assembling) of a LossyBlockMatrix for field point evaluation
+==========================================================================================#
+
+struct LossyGlobalOuter_fp{T} <: LinearMaps.LinearMap{T}
+    Ha                          # Acoustical BEM H
+    Ga                          # Acoustical BEM G
+    Hh::AbstractArray{T}        # Thermal BEM H
+    Gh                          # Thermal BEM G
+    Hv::AbstractArray{T}        # Viscous BEM H
+    Gv                          # Viscous BEM GH
+    C0
+end
+
+
+function LossyGlobalOuter_fp(mesh::Mesh,sources,freq;
+                            progress=true,
+                            sparse_offset=nothing,
+                            depth=1,sparse_assembly=true,
+                            m=3,n=3,S=1,int_ext=-1)
+    if (typeof(mesh.physics_function) <: DiscontinuousTriangularConstant)
+        ArgumentError("Constant elements will have a tangential derivative equal to zero.")
+    end
+    # Computing physical constants
+    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=freq,S=S)
+
+    ### Assembling the 3 BEM systems
+    if progress; @info("Acoustic Matrices:"); end
+    Ha,Ga,C = assemble_parallel!(mesh,kₐ,sources,int_ext;m=m,n=n,progress=progress)
+    
+    if int_ext == -1
+        C0 = -C .+ 1.
+    else
+        C0 = -C
+    end
+
+    # Thermal matrices
+    if progress; @info("Thermal Matrices:"); end
+    Hh,Gh = assemble_parallel!(mesh,kₕ,sources,int_ext;offset=sparse_offset,
+                        sparse=false,depth=depth,progress=progress);
+
+    # Viscous matrices
+    if progress; @info("Viscous matrices:"); end
+    Hv,Gv  = assemble_parallel!(mesh,kᵥ,sources,int_ext;offset=sparse_offset,
+                        sparse=false,depth=depth,progress=progress);
+
+    # Gv = blockdiag(Bᵥ, Bᵥ, Bᵥ)
+    # Hv = blockdiag(Fᵥ, Fᵥ, Fᵥ)
+
+
+    return LossyGlobalOuter_fp(Ha,Ga,
+                            Hh,Gh,
+                            Hv,Gv,
+                            C0)
+end
+    

@@ -113,3 +113,21 @@ function create_vizualization_data(mesh,data,physics_function::DiscontinuousTria
     end
     return simple_mesh, data_viz
 end
+
+function create_points(tri_mesh,sources)
+    # MeshViz only support linear facets. We mimick this by remove 2nd order.
+    initial_topology = tri_mesh.topology[1:3,:]
+    # Removing unused nodes i.e. the 2nd order nodes
+    used_nodes   = sort(unique(initial_topology))
+    new_topology = remove_unused_nodes(initial_topology)
+    # Reordering coordinates
+    coordinates = tri_mesh.coordinates[:,used_nodes]
+    # Creating vector of points
+    points = Point.(sources[1,:], sources[2,:], sources[3,:])
+    # Creating vector of connectivities
+    connectivities = [connect(Tuple(Float64.(face))) for face in eachcol(new_topology)] # topology does not match the points but otherwise SimpleMesh is not working
+    # Returning a SimpleMesh of the points and connectivities
+    simplemesh = SimpleMesh(points, connectivities)
+
+    return simplemesh.vertices
+end
