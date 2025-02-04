@@ -584,4 +584,217 @@ writedlm( "vn_error.csv",  vn_error, ',');
 writedlm( "vt_error.csv",  vt_error, ',');
 
 
+#==========================================================================================
+                            Export discretization error wrt pa and vv
+==========================================================================================#
+# RESULTS rel error total
+i = 0;
+pa_error = zeros(Float64, 2,7);
+vn_error = zeros(Float64, 2,7);
+vt_error = zeros(Float64, 2,7);
+v_error = zeros(Float64, 2,7);
 
+for freq in [100,1000]
+    i+=1;
+    j = 0;
+    for M in [494,930,1682,2642,5590,9014,13062]
+        j +=1;
+        data_file = "runtimes1x1_$(M)DOFs_$(Int(freq))Hz.JLD2";
+        f = jldopen(data_file);
+
+        pa = f["pa"]
+        pasAN = f["pasAN"]
+        v_rAN_V = f["v_rAN_V"]
+        v_thetaAN_V = f["v_thetaAN_V"]
+        v_n0 = f["v_n0"]
+        vt_sum = f["vt_sum"]
+
+        v_abs = sqrt.(v_n0.^2 + vt_sum.^2);
+        v_absAN = sqrt.(v_rAN_V.^2 + v_thetaAN_V.^2);
+
+        # 1n iter
+        pa_error[i,j] = errorCalc(pa,pasAN,M); # discretization error in surface nodes compared to analytical solution
+        vn_error[i,j] = errorCalc(v_n0,v_rAN_V,M);
+        vt_error[i,j] = errorCalc(vt_sum,v_thetaAN_V,M);
+        v_error[i,j] = errorCalc(v_abs,v_absAN,M);
+
+        close(f);
+
+    end
+end
+
+# export
+writedlm( "pa_error.csv",  pa_error, ',');
+writedlm( "vn_error.csv",  vn_error, ',');
+writedlm( "vt_error.csv",  vt_error, ',');
+writedlm( "v_error.csv",  v_error, ',');
+
+using DelimitedFiles
+using BoundaryIntegralEquations
+nfreq = 1000
+kList = zeros(ComplexF64,nfreq,5)
+for freq = 1:nfreq
+    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=float(freq),S=1);
+    kList[freq,1] = c
+    kList[freq,2] = kₐ
+    kList[freq,3] = kₕ
+    kList[freq,4] = kᵥ
+    kList[freq,5] = kₚ
+end
+
+# export
+writedlm( "kListReal.csv",  real.(kList), ',');
+writedlm( "kListImag.csv",  imag.(kList), ',');
+
+
+using DelimitedFiles
+using BoundaryIntegralEquations
+using JLD2
+M = 15454;
+p0 = 2*10^(-5);
+d = 0.01;
+for freq = 200:300
+    
+    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=freq,S=1);
+    factor = 1im*2*pi*freq*ρ
+
+    data_file = "results1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+    f = jldopen(data_file);
+
+    pa_ll = f["pa_ll"]^factor 
+
+    pa_rms_ll = sqrt.(0.5*real.(pa_ll.*conj.(pa_ll)));
+    SPL_ll = 20*log10.(pa_rms_ll./p0);
+    
+
+    pa=f["pa"]
+    SPL=f["SPL"]
+    ph=f["ph"]
+    log_ph=f["log_ph"]
+    hist_pa=f["hist_pa"]
+    v=f["v"]
+    log_vv=f["log_vv"]
+    v_r=f["v_r"]
+    v_theta=f["v_theta"]
+    hist_dpa=f["hist_dpa"]
+    coordinates=f["coordinates"]
+    elements=f["elements"]
+    
+    
+    close(f);
+
+    # Saving data
+    jldsave("results1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2", 
+    pa=pa,
+    pa_ll=pa_ll,
+    SPL=SPL,
+    SPL_ll=SPL_ll,
+    ph=ph,
+    log_ph=log_ph,
+    hist_pa=hist_pa,
+    v=v,
+    log_vv=log_vv,
+    v_r=v_r,
+    v_theta=v_theta,
+    hist_dpa=hist_dpa,
+    coordinates=coordinates,
+    elements=elements,
+    )   
+    
+    data_file = "results_fp_1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+    f = jldopen(data_file);
+
+    pa_fp_ll = f["pa_fp_ll"]*factor 
+    pa_fp = f["pa_fp"]
+
+    pa_rms_fp_ll = sqrt.(0.5*real.(pa_fp_ll.*conj.(pa_fp_ll)));
+    SPL_fp_ll = 20*log10.(pa_rms_fp_ll./p0);
+
+    alpha = 1-abs((exp(1im*kₐ*d)-pa_fp[2]/pa_fp[1])/(pa_fp[2]/pa_fp[1]-exp(-1im*kₐ*d))*exp(1im*kₐ))^2;
+    alpha_ll = 1-abs((exp(1im*kₐ*d)-pa_fp_ll[2]/pa_fp_ll[1])/(pa_fp_ll[2]/pa_fp_ll[1]-exp(-1im*kₐ*d))*exp(-1im*kₐ))^2;
+
+
+    SPL_fp=f["SPL_fp"]
+    ph_fp=f["ph_fp"]
+    log_ph_fp=f["log_ph_fp"]
+    vv_fp=f["vv_fp"]
+    log_vv_fp=f["log_vv_fp"]
+
+    close(f);
+
+    # Saving data
+    jldsave("results_fp_1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2", 
+    pa_fp=pa_fp,
+    pa_fp_ll=pa_fp_ll,
+    SPL_fp=SPL_fp,
+    SPL_fp_ll=SPL_fp_ll,
+    ph_fp=ph_fp,
+    log_ph_fp=log_ph_fp,
+    vv_fp=vv_fp,
+    log_vv_fp=log_vv_fp,
+    alpha=alpha,
+    alpha_ll=alpha_ll,
+    )
+
+end
+
+
+using Plots
+
+nfreq = 300-200+1;
+M = 15454;
+i = 0;
+alpha = zeros(Float64,nfreq,2);
+alpha_ll = zeros(Float64,nfreq,2);
+
+for freq = 200:300
+    i+=1;
+    data_file = "results_fp_1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+    f = jldopen(data_file);
+
+    alpha[i,1] = freq;
+    alpha[i,2] = f["alpha"];
+    alpha_ll[i,1] = freq;
+    alpha_ll[i,2] = f["alpha_ll"];
+
+    close(f);
+end
+
+# export
+writedlm( "alpha_resonatortube.txt",  alpha, '\t')
+writedlm( "alpha_ll_resonatortube.txt",  alpha_ll, '\t')
+
+
+nfreq = 300-200+1;
+M = 15454;
+i = 0;
+alpha = zeros(Float64,nfreq,2);
+alpha_ll = zeros(Float64,nfreq,2);
+
+for freq = 200:300
+    i+=1;
+    data_file = "results_fp_1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+    f = jldopen(data_file);
+
+    pa_fp_ll = f["pa_fp_ll"]
+    pa_fp = f["pa_fp"]
+    d = 0.01
+    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=freq,S=1);
+
+    alpha_scalar = 1-abs((exp(1im*kₚ*d)-pa_fp[2]/pa_fp[1])/(pa_fp[2]/pa_fp[1]-exp(-1im*kₚ*d)))^2;
+    alpha_ll_scalar = 1-abs((exp(1im*kₚ*d)-pa_fp_ll[2]/pa_fp_ll[1])/(pa_fp_ll[2]/pa_fp_ll[1]-exp(-1im*kₚ*d)))^2;
+
+
+    alpha[i,1] = freq;
+    alpha[i,2] = alpha_scalar;
+    alpha_ll[i,1] = freq;
+    alpha_ll[i,2] = alpha_ll_scalar;
+
+    close(f);
+end
+
+
+using Plots
+plot(200:300,alpha[:,2],label="alpha lossy",marker=:cross,markersize=2,color=:black);
+xlabel!("freq (Hz)"); plot!(200:300,alpha_ll[:,2],label="alpha lossless",marker=:cross,markersize=2,color=:blue);
+title!("Absorption coefficient resonator tube")
