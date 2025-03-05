@@ -629,23 +629,10 @@ writedlm( "vn_error.csv",  vn_error, ',');
 writedlm( "vt_error.csv",  vt_error, ',');
 writedlm( "v_error.csv",  v_error, ',');
 
-using DelimitedFiles
-using BoundaryIntegralEquations
-nfreq = 1000
-kList = zeros(ComplexF64,nfreq,5)
-for freq = 1:nfreq
-    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=float(freq),S=1);
-    kList[freq,1] = c
-    kList[freq,2] = kₐ
-    kList[freq,3] = kₕ
-    kList[freq,4] = kᵥ
-    kList[freq,5] = kₚ
-end
 
-# export
-writedlm( "kListReal.csv",  real.(kList), ',');
-writedlm( "kListImag.csv",  imag.(kList), ',');
-
+#==========================================================================================
+                            Export results and absorption coeffiecient for resonator tube IGA study
+==========================================================================================#
 
 using DelimitedFiles
 using BoundaryIntegralEquations
@@ -798,3 +785,158 @@ using Plots
 plot(200:300,alpha[:,2],label="alpha lossy",marker=:cross,markersize=2,color=:black);
 xlabel!("freq (Hz)"); plot!(200:300,alpha_ll[:,2],label="alpha lossless",marker=:cross,markersize=2,color=:blue);
 title!("Absorption coefficient resonator tube")
+
+
+
+#==========================================================================================
+                            Export discretization error wrt pa and vv for IGA study
+==========================================================================================#
+
+# RESULTS rel error total
+i = 0;
+pa_error = zeros(Float64, 10,5);
+vvr_error = zeros(Float64, 10,5);
+vvt_error = zeros(Float64, 10,5);
+
+for freq in [100,200,300,400,500,600,700,800,900,1000]
+    i+=1;
+    j = 0;
+    for M in [494,930,1682,2642,3714]
+        j +=1;
+        data_file = "results1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+        f = jldopen(data_file);
+
+        pa = f["pa"]
+        pasAN = f["pasAN"]
+        v_rAN_V = f["v_rAN_V"]
+        v_thetaAN_V = f["v_thetaAN_V"]
+        v_r = f["v_r"]
+        v_theta = f["v_theta"]
+
+        # 1n iter
+        pa_error[i,j] = errorCalc(pa,pasAN,M); # discretization error in surface nodes compared to analytical solution
+        vvr_error[i,j] = errorCalc(v_r,v_rAN_V,M);
+        vvt_error[i,j] = errorCalc(v_theta,v_thetaAN_V,M);
+ 
+        close(f);
+
+    end
+end
+
+# export
+writedlm( "pa_error_IGA.csv",  pa_error, ',');
+writedlm( "vvr_error_IGA.csv",  vvr_error, ',');
+writedlm( "vvt_error_IGA.csv",  vvt_error, ',');
+
+writedlm( "pa_error_IGA.txt",  pa_error, ',');
+writedlm( "vvr_error_IGA.txt",  vvr_error, ',');
+writedlm( "vvt_error_IGA.txt",  vvt_error, ',');
+
+#==========================================================================================
+                            Export non-uniqueness error wrt pa and vv for sphere freq study
+==========================================================================================#
+
+
+using DelimitedFiles
+using BoundaryIntegralEquations
+nfreq = 1000
+kList = zeros(ComplexF64,nfreq,5)
+for freq = 1:nfreq
+    ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=float(freq),S=1);
+    kList[freq,1] = c
+    kList[freq,2] = kₐ
+    kList[freq,3] = kₕ
+    kList[freq,4] = kᵥ
+    kList[freq,5] = kₚ
+end
+
+# export
+writedlm( "kListReal.csv",  real.(kList), ',');
+writedlm( "kListImag.csv",  imag.(kList), ',');
+
+# RESULTS rel error total
+i = 0;
+pa_error = zeros(Float64, 1000,1);
+vvr_error = zeros(Float64, 1000,1);
+vvt_error = zeros(Float64, 1000,1);
+
+for freq in range(100,1000,1)
+    i+=1;
+    j = 0;
+    for M in [2642]
+        j +=1;
+        data_file = "results1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+        f = jldopen(data_file);
+
+        pa = f["pa"]
+        pasAN = f["pasAN"]
+        v_rAN_V = f["v_rAN_V"]
+        v_thetaAN_V = f["v_thetaAN_V"]
+        v_r = f["v_r"]
+        v_theta = f["v_theta"]
+
+        # 1n iter
+        pa_error[i,j] = errorCalc(pa,pasAN,M); # discretization error in surface nodes compared to analytical solution
+        vvr_error[i,j] = errorCalc(v_r,v_rAN_V,M);
+        vvt_error[i,j] = errorCalc(v_theta,v_thetaAN_V,M);
+ 
+        close(f);
+
+    end
+end
+
+# export
+writedlm( "pa_freqerror.csv",  pa_error, ',');
+writedlm( "vvr_freqerror.csv",  vvr_error, ',');
+writedlm( "vvt_freqerror.csv",  vvt_error, ',');
+
+writedlm( "pa_freqerror.txt",  pa_error, '\t');
+writedlm( "vvr_freqerror.txt",  vvr_error, '\t');
+writedlm( "vvt_freqerror.txt",  vvt_error, '\t');
+
+# RESULTS rel error total
+using Statistics
+i = 0;
+pa_arr = zeros(Float64, 901,1)
+paAN_arr = zeros(Float64, 901,1)
+vvr_arr = zeros(Float64, 901,1)
+vvrAN_arr = zeros(Float64, 901,1)
+vvt_arr = zeros(Float64, 901,1)
+vvtAN_arr = zeros(Float64, 901,1)
+
+for freq in range(100,1000,1)
+    i+=1;
+    j = 0;
+    for M in [2642]
+        j +=1;
+        data_file = "results1x1b_$(M)DOFs_$(Int(freq))Hz.JLD2";
+        f = jldopen(data_file);
+
+        pa = f["pa"]
+        pasAN = f["pasAN"]
+        v_rAN_V = f["v_rAN_V"]
+        v_thetaAN_V = f["v_thetaAN_V"]
+        v_r = f["v_r"]
+        v_theta = f["v_theta"]
+
+        # 1n iter
+        pa_arr[i,j] = mean(abs.(pa)); # discretization error in surface nodes compared to analytical solution
+        paAN_arr[i,j] = mean(abs.(pasAN));
+        vvr_arr[i,j] = mean(abs.(v_rAN_V));
+        vvrAN_arr[i,j] = mean(abs.(v_rAN_V));
+        vvt_arr[i,j] = mean(abs.(v_theta));
+        vvtAN_arr[i,j] = mean(abs.(v_thetaAN_V));
+        
+ 
+        close(f);
+
+    end
+end
+
+# export
+writedlm( "pa.txt",  pa_arr, '\t');
+writedlm( "vvr.txt",  vvr_arr, '\t');
+writedlm( "vvt.txt",  vvt_arr, '\t');
+writedlm( "paAN.txt",  paAN_arr, '\t');
+writedlm( "vvrAN.txt",  vvrAN_arr, '\t');
+writedlm( "vvtAN.txt",  vvtAN_arr, '\t');
