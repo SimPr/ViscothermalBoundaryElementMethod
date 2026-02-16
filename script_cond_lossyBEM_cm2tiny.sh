@@ -16,4 +16,4 @@
 module load slurm_setup
 # Load other intended modules here....
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-julia --project=.  ./examples/paper1_comparisons1.jl
+julia --project=.  ./examples/sphere_losses_conditioning.jl
