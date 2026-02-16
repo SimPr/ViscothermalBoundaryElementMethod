@@ -5,7 +5,7 @@
 |[![](https://img.shields.io/badge/docs-online-blue.svg)](https://mipals.github.io/BoundaryIntegralEquations.jl/dev/)| [![Build Status](https://github.com/mipals/BoundaryIntegralEquations.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/mipals/BoundaryIntegralEquations.jl/actions/workflows/CI.yml?query=branch%3Amain) | [![Coverage](https://codecov.io/gh/mipals/BoundaryIntegralEquations.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/mipals/BoundaryIntegralEquations.jl)| ![](https://img.shields.io/badge/Lifecycle-Unstable-yellow)| 
 
 
-ViscothermalBoundaryElementMethod.jl provides the basic building blocks required for solving the Boundary Element Methods (BEM) with viscous and thermal losses in the bulk and acoustic boundary layers. Currently, it uses the collocation method for discretization of the Kirchhoff–Helmholtz integral equation found in acoustical applications
+ViscothermalBoundaryElementMethod provides the basic building blocks required for solving the Boundary Element Method (BEM) with viscous and thermal losses in the bulk and acoustic boundary layers. Currently, it uses the collocation method for discretization of the Kirchhoff–Helmholtz integral equation found in acoustical applications
 
 $$
 c(\mathbf{y})p(\mathbf{y}) + \int_\Gamma\frac{\partial G(\mathbf{x}, \mathbf{y})}{\partial \mathbf{n} }p(\mathbf{x})\ \mathrm{d}\Gamma_\mathbf{x} = \mathrm{i}\rho ck\int_\Gamma G(\mathbf{x},\mathbf{y})v_s(\mathbf{x})\ \mathrm{d}\Gamma_\mathbf{x}.
@@ -22,7 +22,7 @@ The package can be downloaded directly from GitHub
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/SimPr/ViscothermalBoundaryElementMethod.jl")
+Pkg.add(url="https://github.com/SimPr/ViscothermalBoundaryElementMethod")
 ```
 
 ## Element types
