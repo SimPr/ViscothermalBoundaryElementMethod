@@ -1,3 +1,7 @@
+# Track time and memory for LGM setup, assembly of rhs and system matrix, solution, reconstruction of unknowns (all 10n-direct)
+# Save plots and solution for pa and vv (10n-direct) + analytical reference
+# Call with julia --project=.  ./examples/sphere_global_losses_10x10_runTimeComp.jl --freq 500 --compute_full_solution true --mesh_file "sphere_1m_coarser"
+
 using ArgParse
 function parse_commandline()
     s = ArgParseSettings()
@@ -74,16 +78,7 @@ tri_physics_orders  = [:linear,:geometry,:disctriconstant,:disctrilinear,:disctr
 #bool_reconstruction = true;
 # Triangular Meshes
 
-# tri_mesh_file = "examples/meshes/sphere_1m_coarser"
-# tri_mesh_file = "examples/meshes/sphere_1m_coarse"
-# tri_mesh_file = "examples/meshes/sphere_1m"
-# tri_mesh_file = "examples/meshes/sphere_1m_fine"
-# tri_mesh_file = "examples/meshes/sphere_1m_finer"
-# tri_mesh_file = "examples/meshes/sphere_1m_extremely_fine"
-# tri_mesh_file = "examples/meshes/sphere_1m_finest"
-# tri_mesh_file = "examples/meshes/sphere_1m_35k"
-# tri_mesh_file = "examples/meshes/sphere_1m_77k"
-#mesh_files =  ["sphere_1m_coarser"]#,"sphere_1m_coarse","sphere_1m","sphere_1m_fine","sphere_1m_finer"];
+#mesh_files =  ["sphere_1m_coarser","sphere_1m_coarse","sphere_1m","sphere_1m_fine","sphere_1m_finer"];
 mesh_path = joinpath(dirname(pathof(BoundaryIntegralEquations)),"..","examples","meshes");
 
 #for mesh_file in mesh_files
@@ -112,16 +107,15 @@ push!(output, preprocess_trial(@benchmark(LossyGlobalOuter(mesh,freq;fmm_on=fals
 LGM = LossyGlobalOuter(mesh,freq;fmm_on=false,depth=1,n=3,progress=false);
 
 @info "Computing RHS"
-push!(output,preprocess_trial(@benchmark([zeros(7M);v0],evals=20),"tRHS"))
+push!(output,preprocess_trial(@benchmark([zeros(7M);v0],evals=20),"tRHS")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
 rhs = [zeros(7M);v0];
 
 # dense
 @info "Assembling and solving dense system"
-push!(output, preprocess_trial(@benchmark(denseSolve(LGM,rhs),evals=20), "tDense"))
+push!(output, preprocess_trial(@benchmark(denseSolve(LGM,rhs),evals=20), "tDense")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
 LGM_dense  = BoundaryIntegralEquations._full10(LGM);
 sol = LGM_dense\rhs;
 pa = sol[1:M];
-#cond(LGM_dense)
 
 # Generating analytical solution
 ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=freq,S=1);

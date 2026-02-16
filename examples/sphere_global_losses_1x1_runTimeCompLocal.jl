@@ -1,6 +1,6 @@
-# Track time and memory for LGM setup, assembly of rhs and system matrix, solution, reconstruction of unknowns (all 4n-direct)
-# Save plots and solution for pa and vv (4n-direct) + analytical reference
-# Call with julia --project=.  ./examples/sphere_global_losses_4x4_runTimeComp.jl --freq 500 --compute_full_solution true --mesh_file "sphere_1m_coarser"
+# Track time and memory for LGM setup (equal for 1n-iter, 1n-direct), assembly of rhs and system matrix (only 1n-direct), solution (1n-iter, 1n-direct), reconstruction of unknowns (based on 1n-iter)
+# Save plots and solution for pa (1n-iter), paDense (1n-direct) and vv(1n-iter) + analytical reference
+# Call with julia --project=.  ./examples/sphere_global_losses_1x1_runTimeCompLocal.jl --freq 500 --compute_full_solution true --mesh_file "sphere_1m_coarser"
 
 using ArgParse
 function parse_commandline()
@@ -57,15 +57,16 @@ preprocess_trial(t::BenchmarkTools.Trial, id::AbstractString) = (id=id,
         allocations=t.allocs,
         memory_estimate=t.memory)
 
-function denseSolve(LGM::LossyGlobalOuter,rhs::Vector{Float64})
-    LGM_dense  = BoundaryIntegralEquations._full4(LGM);
-    sol = LGM_dense\rhs;
+function denseSolve(LGM::LossyGlobalOuter,rhs::Vector{ComplexF64})
+    LGM_dense  = BoundaryIntegralEquations._full1_new(LGM);
+    paDense = LGM_dense\rhs;
 end
 
-function reconstructUnknowns(LGM::LossyGlobalOuter,sol::Vector{ComplexF64},M::Int64)
+function reconstructUnknowns(LGM::LossyGlobalOuter,pa::Vector{ComplexF64},M::Int64)
+    v  = v0 - (LGM.mu_a*LGM.Dc*pa + LGM.mu_h*LGM.Nd*gmres(LGM.Gh,LGM.Hh*pa;verbose=false) - LGM.phi_a*LGM.Nd*gmres(LGM.Ga,LGM.Ha*pa;verbose=false));
     # Local components of the viscous velocity on the boundary
-    v_n0 = LGM.Nd'*sol[1M+1:4M]; 
-    v_t = sol[1M+1:4M] + LGM.Nd*v_n0; # Computing the tangential velocity by substracting the normal information
+    v_n0 = LGM.Nd'*v;
+    v_t = v + LGM.Nd*v_n0; # Computing the tangential velocity by substracting the normal information
     vt_sum = sqrt.(v_t[0M+1:1M].^2 + v_t[1M+1:2M].^2 + v_t[2M+1:3M].^2);
 end
 
@@ -78,10 +79,9 @@ tri_physics_orders  = [:linear,:geometry,:disctriconstant,:disctrilinear,:disctr
 #bool_reconstruction = true;
 # Triangular Meshes
 
-#mesh_files =  ["sphere_1m_coarser","sphere_1m_coarse","sphere_1m","sphere_1m_fine","sphere_1m_finer"];
+#mesh_files =  ["sphere_1m_coarser","sphere_1m_coarse","sphere_1m","sphere_1m_fine","sphere_1m_finer","sphere_1m_4p5k","sphere_1m_extremely_fine","sphere_1m_35k","sphere_1m_77k"];
 mesh_path = joinpath(dirname(pathof(BoundaryIntegralEquations)),"..","examples","meshes");
 
-#for mesh_file in mesh_files
 #mesh_file = mesh_files[1]
 tri_mesh_file = joinpath(mesh_path,mesh_file);
 mesh = load3dTriangularComsolMesh(tri_mesh_file;geometry_order=geometry_orders[2],
@@ -98,24 +98,29 @@ M  = size(xyzb,2);
 u₀ = 1e-2;
 v0 = [zeros(2M); u₀*ones(M)];
 #===========================================================================================
-                        BEM matrix assembly and (iterative) solution of the 1-variable system
+                        BEM matrix assembly and direct/iterative solution of the 1-variable system
 ===========================================================================================#
 
 output = DataFrame()
 @info "Computing LGM"
-push!(output, preprocess_trial(@benchmark(LossyGlobalOuter(mesh,freq;fmm_on=false,depth=1,n=3,progress=false),evals=20), "tLGM"))
+push!(output, preprocess_trial(@benchmark(LossyGlobalOuter(mesh,freq;fmm_on=false,depth=1,n=3,progress=false),evals=10), "tLGM"))
 LGM = LossyGlobalOuter(mesh,freq;fmm_on=false,depth=1,n=3,progress=false);
 
 @info "Computing RHS"
-push!(output,preprocess_trial(@benchmark([zeros(M); v0],evals=20),"tRHS")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
-rhs = [zeros(M); v0];
+push!(output,preprocess_trial(@benchmark(LGM.Ga*gmres(LGM.inner,(LGM.Dr*v0 - LGM.Nd'*gmres(LGM.Gv,LGM.Hv*v0;verbose=false));verbose=false),evals=10),"tRHS")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
+rhs = LGM.Ga*gmres(LGM.inner,(LGM.Dr*v0 - LGM.Nd'*gmres(LGM.Gv,LGM.Hv*v0;verbose=false));verbose=false);
 
 # dense
 @info "Assembling and solving dense system"
-push!(output, preprocess_trial(@benchmark(denseSolve(LGM,rhs),evals=20), "tDense")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
-LGM_dense  = BoundaryIntegralEquations._full4(LGM);
-sol = LGM_dense\rhs;
-pa = sol[1:M];
+push!(output, preprocess_trial(@benchmark(denseSolve(LGM,rhs),evals=10), "tDense")) # benchmark accumulates memory allocations over matrix setup and solution and as such does not represent maximum memory requirement
+LGM_dense  = BoundaryIntegralEquations._full1_new(LGM);
+paDense = LGM_dense\rhs;
+
+# iterative format
+@info "Assembling and solving iterative system"
+push!(output, preprocess_trial(@benchmark(gmres(LGM,rhs;verbose=false),evals=10), "tIter")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
+pa,hist_pa = gmres(LGM,rhs;verbose=false,log=true);
+println(hist_pa)
 
 # Generating analytical solution
 ρ,c,kₚ,kₐ,kₕ,kᵥ,τₐ,τₕ,ϕₐ,ϕₕ,η,μ = visco_thermal_constants(;freq=freq,S=1);
@@ -129,22 +134,26 @@ perm = sortperm(ang_axis);
 # Plotting pressure
 K = 1;
 gr(size=(600,500));
-scatter(ang_axis[1:K:end],real.(pa[1:K:end]),label="BEM - 4n Dense",marker=:cross,markersize=2,color=:black,dpi=400);
+scatter(ang_axis[1:K:end],real.(paDense[1:K:end]),label="BEM - 1n Dense",marker=:cross,markersize=2,color=:black,dpi=400);
+scatter!(ang_axis[1:K:end],real.(pa[1:K:end]),label="BEM - 1n Iter",marker=:x,markersize=2,color=:red,dpi=400);
 plot!(ang_axis[perm],real.(pasAN[perm]),label="Analytical",linewidth=1,color=:blue);
 ylabel!("Re(Pa)");
 title!("Frequency = $(freq) Hz");
 xlabel!("Angle [deg]");
-savefig("paGlobal4x4_$(M)DOFs_$(Int(freq))Hz.png")
+savefig("paGlobal1x1_$(M)DOFs_$(Int(freq))Hz.png")
 
 if compute_full_solution == true
     #===========================================================================================
-                                    Reconstructing unknowns
+                                    Reconstructing unknowns based on 1n - iter
     ===========================================================================================#
     @info "Reconstructing unknowns"
-    push!(output, preprocess_trial(@benchmark(reconstructUnknowns(LGM,sol,M),evals=20), "tRec"))
-    v = sol[1M+1:4M]; 
+    push!(output, preprocess_trial(@benchmark(reconstructUnknowns(LGM,pa,M),evals=10), "tRec")) # benchmark accumulates memory allocations over gmres iterations and as such does not represent maximum memory requirement
+    tmp1 =  gmres(LGM.Gh,LGM.Hh*pa;verbose=false);
+    dpa,hist_dpa  = gmres(LGM.Ga,LGM.Ha*pa;verbose=false,log=true); # <- This is the bottleneck...
+    println(hist_dpa)
+    v  = v0 - (LGM.mu_a*LGM.Dc*pa + LGM.mu_h*LGM.Nd*tmp1 - LGM.phi_a*LGM.Nd*dpa);
     # Local components of the viscous velocity on the boundary
-    v_n0   = LGM.Nd'*v; 
+    v_n0 = LGM.Nd'*v;
     v_t = v + LGM.Nd*v_n0; # Computing the tangential velocity by substracting the normal information
     vt_sum = sqrt.(v_t[0M+1:1M].^2 + v_t[1M+1:2M].^2 + v_t[2M+1:3M].^2);
     #===========================================================================================
@@ -159,8 +168,8 @@ if compute_full_solution == true
     plt3 = scatter(ang_axis,real.(vt_sum),label="BEM",marker=:cross,markersize=2,color=:black);
     plot!(ang_axis[perm],real.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
     xlabel!("Angle [deg]"); ylabel!("Re(Vt)");
-    plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-    savefig("allGlobal4x4_Real_$(M)DOFs_$(Int(freq))Hz.png")
+    plt4 = plot(plt1,plt2,plt3,layout=(3,1));
+    savefig("allGlobal1x1b_Real_$(M)DOFs_$(Int(freq))Hz.png");
 
     plt1 = scatter(ang_axis,imag.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
     ylabel!("Imag(Pa)"); plot!(ang_axis[perm],imag.(pasAN[perm]),label="Analytical",linewidth=2,color=:blue);
@@ -170,8 +179,8 @@ if compute_full_solution == true
     plt3 = scatter(ang_axis,imag.(vt_sum),label="BEM",marker=:cross,markersize=2,color=:black);
     plot!(ang_axis[perm],imag.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
     xlabel!("Angle [deg]"); ylabel!("Imag(Vt)");
-    plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-    savefig("allGlobal4x4_Imag_$(M)DOFs_$(Int(freq))Hz.png")
+    plt4 = plot(plt1,plt2,plt3,layout=(3,1));
+    savefig("allGlobal1x1b_Imag_$(M)DOFs_$(Int(freq))Hz.png");
 
     plt1 = scatter(ang_axis,abs.(pa),label="BEM",marker=:cross,markersize=2,color=:black);
     ylabel!("|Pa|"); plot!(ang_axis[perm],abs.(pasAN[perm]),label="Analytical",linewidth=2,color=:blue);
@@ -181,13 +190,16 @@ if compute_full_solution == true
     plt3 = scatter(ang_axis,abs.(vt_sum),label="BEM",marker=:cross,markersize=2,color=:black);
     plot!(ang_axis[perm],abs.(v_thetaAN_V[perm]),label="Analytical",linewidth=2,color=:blue);
     xlabel!("Angle [deg]"); ylabel!("|Vt|");
-    plt4 = plot(plt1,plt2,plt3,layout=(3,1))
-    savefig("allGlobal4x4_Abs_$(M)DOFs_$(Int(freq))Hz.png")
+    plt4 = plot(plt1,plt2,plt3,layout=(3,1));
+    savefig("allGlobal1x1b_Abs_$(M)DOFs_$(Int(freq))Hz.png");
 
     # Saving data
-    jldsave("runtimes4x4_$(M)DOFs_$(Int(freq))Hz.JLD2", 
+    jldsave("runtimes1x1_$(M)DOFs_$(Int(freq))Hz.JLD2", 
     runtimes=output,
+    paDense=paDense,
     pa=pa,
+    hist_pa=hist_pa,
+    hist_dpa=hist_dpa,
     pasAN=pasAN,
     v_rAN_V=v_rAN_V,
     v_thetaAN_V=v_thetaAN_V,
@@ -200,14 +212,14 @@ if compute_full_solution == true
 
 else
     # Saving data
-    jldsave("runtimes4x4_$(M)DOFs_$(Int(freq))Hz.JLD2", 
+    jldsave("runtimes1x1_$(M)DOFs_$(Int(freq))Hz.JLD2", 
     runtimes=output,
+    paDense=paDense,
     pa=pa,
+    hist_pa=hist_pa,
     pasAN=pasAN,
     ang_axis=ang_axis
     );
 
     print(output)
 end
-
-#end
